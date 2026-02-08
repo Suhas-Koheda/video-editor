@@ -13,12 +13,12 @@ def get_entities_and_nouns(text):
     """
     global _gliner_model
     if _gliner_model is None:
-        # Load the base GLiNER model - it's relatively lightweight and very powerful
-        _gliner_model = GLiNER.from_pretrained("numind/EntityCS-GLiNER-Base")
+        # Multilingual GLiNER supports 100+ languages including major Indian languages
+        _gliner_model = GLiNER.from_pretrained("urchade/gliner_multi")
 
-    # 1. Zero-Shot NER for specific categories including custom ones
-    labels = ["Person", "Organization", "Location", "Social Group", "Economic Concept", "Phrase"]
-    entities = _gliner_model.predict_entities(text, labels, threshold=0.4)
+    # Labels for multilingual discovery
+    labels = ["Person", "Organization", "Location", "Social Group", "Concept", "Phrase", "Politician", "Event"]
+    entities = _gliner_model.predict_entities(text, labels, threshold=0.3)
     
     results = []
     for ent in entities:

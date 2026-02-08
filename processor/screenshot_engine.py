@@ -2,7 +2,7 @@ import asyncio
 import os
 import requests
 
-def capture_wiki_screenshot(url, filename):
+def capture_article_screenshot(url, filename):
     """
     Captures a Wikipedia 'Knowledge Card' screenshot.
     Uses a high-quality rendering API to ensure it works without complex local drivers.

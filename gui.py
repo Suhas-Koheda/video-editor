@@ -19,25 +19,21 @@ class AnalysisWorker(QThread):
             from processor.video_processr import extract_audio
             from processor.speech_to_text import transcribe_audio_with_timestamps
             from processor.nlp_engine import get_entities_and_nouns
-            from processor.retrieval_engine import search_wikipedia_candidates
 
-            self.status.emit("Extracting audio...")
+            self.status.emit("Extracting audio & detecting language...")
             audio_path = extract_audio(self.video_path)
 
             self.status.emit("Transcribing speech...")
-            segments = transcribe_audio_with_timestamps(audio_path)
+            segments, language = transcribe_audio_with_timestamps(audio_path)
+            self.detected_language = language
 
-            self.status.emit("Analyzing entities (NER/POS)...")
+            self.status.emit(f"Analyzing {language.upper()} entities (NER/POS)...")
             for seg in segments:
-                entities = get_entities_and_nouns(seg['text'])
-                seg['entities'] = entities
-                # Pre-fetch top candidate for first entity if exists
-                if entities:
-                    seg['candidates'] = search_wikipedia_candidates(entities[0]['text'])
-                else:
-                    seg['candidates'] = []
-                seg['selected_wiki'] = None # Title of selected article
+                seg['entities'] = get_entities_and_nouns(seg['text'])
+                seg['selected_wiki'] = None 
                 seg['screenshot_path'] = None
+                seg['language'] = language
+                seg['candidates'] = []
 
             self.finished.emit(segments)
         except Exception as e:
@@ -131,8 +127,8 @@ class EditorApp(QMainWindow):
         self.ent_list = QListWidget() # Entities found in this segment
         self.ent_list.itemClicked.connect(self.on_entity_selected)
         
-        self.wiki_list = QListWidget() # Wiki results for selected entity
-        self.wiki_list.itemClicked.connect(self.on_wiki_selected)
+        self.wiki_list = QListWidget() # Results for selected entity
+        self.wiki_list.itemClicked.connect(self.on_article_selected)
 
         mid_layout.addWidget(QLabel("Segment Text"))
         mid_layout.addWidget(self.seg_text_display)
@@ -202,41 +198,40 @@ class EditorApp(QMainWindow):
         entity_name = item.text().split(" (")[0]
         seg = self.segments[self.current_seg_index]
         
-        self.preview_label.setText(f"AI is reasoning about '{entity_name}' in context...")
+        self.preview_label.setText(f"AI is searching Wiki and News for '{entity_name}'...")
         QApplication.processEvents()
         
         from processor.retrieval_engine import agentic_search
-        # Pass the full segment text so the search can be 'Agentic'
-        candidates = agentic_search(seg['text'], entity_name)
+        candidates = agentic_search(seg['text'], entity_name, search_type="all", language=seg.get('language', 'en'))
         
         self.wiki_list.clear()
         if not candidates:
-            self.wiki_list.addItem("No specific articles found for this context")
+            self.wiki_list.addItem("No articles found")
         for cand in candidates:
-            self.wiki_list.addItem(cand['title'])
+            list_item = QListWidgetItem(cand['title'])
+            list_item.setData(Qt.UserRole, cand['url'])
+            self.wiki_list.addItem(list_item)
 
-    def on_wiki_selected(self, item):
+    def on_article_selected(self, item):
         title = item.text()
+        url = item.data(Qt.UserRole)
         if title == "No articles found" or title.startswith("SELECTED:"):
              return
              
         seg = self.segments[self.current_seg_index]
         seg['selected_wiki'] = title
         
-        self.preview_label.setText(f"Capturing Knowledge Card for '{title}'...")
+        self.preview_label.setText(f"Capturing screenshot from {title}...")
         QApplication.processEvents()
         
-        from processor.retrieval_engine import get_wiki_page_data
-        from processor.screenshot_engine import capture_wiki_screenshot
-        
-        page_data = get_wiki_page_data(title)
-        if page_data:
-            path = capture_wiki_screenshot(page_data['url'], f"seg_{self.current_seg_index}")
-            seg['screenshot_path'] = path
-            if path:
-                self.update_preview(path)
-            else:
-                self.preview_label.setText("Failed to capture screenshot. Check internet connection.")
+        from processor.screenshot_engine import capture_article_screenshot
+        # Professional screenshot tool for Wiki and News
+        path = capture_article_screenshot(url, f"seg_{self.current_seg_index}")
+        seg['screenshot_path'] = path
+        if path:
+            self.update_preview(path)
+        else:
+            self.preview_label.setText("Failed to capture. Check connection.")
 
     def update_preview(self, path):
         pixmap = QPixmap(path)
