@@ -12,10 +12,10 @@ os.environ["SENTENCE_TRANSFORMERS_HOME"] = CACHE_DIR
 def download_models():
     print("--- ANTIGRAVITY MODEL PRE-DOWNLOADER ---")
     
-    print("\n[1/4] Downloading Multilingual GLiNER v2.1 (NLP Engine)...")
+    print("\n[1/4] Downloading English GLiNER (Small)...")
     try:
         from gliner import GLiNER
-        GLiNER.from_pretrained("urchade/gliner_multi-v2.1", cache_dir=CACHE_DIR)
+        GLiNER.from_pretrained("urchade/gliner_small-v2.1", cache_dir=CACHE_DIR)
         print("✓ GLiNER Done.")
     except Exception as e:
         print(f"✗ GLiNER Failed: {e}")
@@ -27,9 +27,9 @@ def download_models():
     except Exception as e:
         print(f"✗ Whisper Failed: {e}")
 
-    print("\n[3/4] Downloading Multilingual Sentence Transformer (Retrieval Engine)...")
+    print("\n[3/4] Downloading English Sentence Transformer (Small)...")
     try:
-        SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2', cache_folder=CACHE_DIR)
+        SentenceTransformer('all-MiniLM-L6-v2', cache_folder=CACHE_DIR)
         print("✓ Sentence Transformer Done.")
     except Exception as e:
         print(f"✗ Sentence Transformer Failed: {e}")

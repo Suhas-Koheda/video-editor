@@ -16,8 +16,8 @@ def get_entities_and_nouns(text):
     """
     global _gliner_model
     if _gliner_model is None:
-        print("Loading Multilingual GLiNER v2.1 model for Entity Extraction...")
-        _gliner_model = GLiNER.from_pretrained("urchade/gliner_multi-v2.1", cache_dir=CACHE_DIR)
+        print("Loading English GLiNER (Small) model for Entity Extraction...")
+        _gliner_model = GLiNER.from_pretrained("urchade/gliner_small-v2.1", cache_dir=CACHE_DIR)
         print("✓ GLiNER loaded.")
 
     labels = ["Person", "Organization", "Location", "Social Group", "Concept", "Phrase", "Politician", "Event", "Sentiment"]

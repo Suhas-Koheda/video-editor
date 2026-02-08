@@ -8,3 +8,7 @@ nltk
 faster-whisper
 requests
 huggingface-hub
+fastapi
+uvicorn
+python-multipart
+av

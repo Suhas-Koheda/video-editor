@@ -17,17 +17,16 @@ def agentic_search(segment_text, entity_text, search_type="all", language="en"):
     global _embedder
     if _embedder is None:
         try:
-            print(f"Loading Semantic Ranker (multilingual)...")
-            _embedder = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2', cache_folder=CACHE_DIR)
+            print(f"Loading Semantic Ranker (English Small)...")
+            _embedder = SentenceTransformer('all-MiniLM-L6-v2', cache_folder=CACHE_DIR)
             print("✓ Semantic Ranker loaded.")
         except Exception as e:
             print(f"Warning: Could not load semantic ranker: {e}. Falling back to basic search.")
             _embedder = "FAILED"
 
-    try:
-        wikipedia.set_lang(language)
-    except:
-        wikipedia.set_lang("en")
+    # Force English for small model usage
+    language = "en"
+    wikipedia.set_lang("en")
 
     results = []
     

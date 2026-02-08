@@ -15,7 +15,7 @@ class AnalysisWorker(QThread):
 
     def run(self):
         try:
-            from processor.video_processr import extract_audio
+            from processor.video_processor import extract_audio
             from processor.speech_to_text import transcribe_audio_with_timestamps
             from processor.nlp_engine import get_entities_and_nouns
 
