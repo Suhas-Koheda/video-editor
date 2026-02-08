@@ -11,7 +11,7 @@ def transcribe_audio_with_timestamps(audio_path):
     """
     global _model
     if _model is None:
-        print("Loading Whisper 'base' model for Speech-to-Text...")
+        print("Loading Whisper 'tiny' model for Speech-to-Text...")
         _model = WhisperModel(
             "tiny", 
             device="cpu", 

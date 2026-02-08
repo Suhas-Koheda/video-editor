@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Temp / runtime
+temp/
+py/temp/
+output/
+all_files.txt
+
+# Audio / video artifacts
+*.wav
+*.mp3
+*.mp4
+
+# Model & cache
+.model_cache/
+py/.model_cache/
+models/
+py/models/

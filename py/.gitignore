@@ -1,1 +1,7 @@
 .model_cache/
+.venv/
+__pycache__/
+*.pyc
+temp/
+models/
+outputs/

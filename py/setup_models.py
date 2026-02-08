@@ -12,17 +12,17 @@ os.environ["SENTENCE_TRANSFORMERS_HOME"] = CACHE_DIR
 def download_models():
     print("--- ANTIGRAVITY MODEL PRE-DOWNLOADER ---")
     
-    print("\n[1/4] Downloading Multilingual GLiNER (NLP Engine)...")
+    print("\n[1/4] Downloading Multilingual GLiNER v2.1 (NLP Engine)...")
     try:
         from gliner import GLiNER
-        GLiNER.from_pretrained("urchade/gliner_multi", cache_dir=CACHE_DIR)
+        GLiNER.from_pretrained("urchade/gliner_multi-v2.1", cache_dir=CACHE_DIR)
         print("✓ GLiNER Done.")
     except Exception as e:
         print(f"✗ GLiNER Failed: {e}")
 
-    print("\n[2/4] Downloading Whisper 'base' (Speech to Text)...")
+    print("\n[2/4] Downloading Whisper 'tiny' (Speech to Text)...")
     try:
-        WhisperModel("base", device="cpu", compute_type="int8", download_root=os.path.join(CACHE_DIR, "whisper"))
+        WhisperModel("tiny", device="cpu", compute_type="int8", download_root=os.path.join(CACHE_DIR, "whisper"))
         print("✓ Whisper Done.")
     except Exception as e:
         print(f"✗ Whisper Failed: {e}")
