@@ -8,6 +8,11 @@ if not hasattr(av, 'subtitles'):
     sys.modules["av.subtitles"] = sub_mod
     
     stream_mod = types.ModuleType("stream")
+    # Define SubtitleStream to satisfy imports
+    SubtitleStream = type("SubtitleStream", (), {})
+    stream_mod.SubtitleStream = SubtitleStream
+    sub_mod.SubtitleStream = SubtitleStream
+    
     sub_mod.stream = stream_mod
     sys.modules["av.subtitles.stream"] = stream_mod
 

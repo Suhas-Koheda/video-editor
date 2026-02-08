@@ -1,28 +1,34 @@
 # AI Video Knowledge Editor
 
-A professional-grade AI video editor that automatically enriches your videos with knowledge cards from Wikipedia and News sources. It uses state-of-the-art Multilingual NLP and Speech-to-Text to understand your content and overlay relevant information.
+A specialized AI-powered video editing tool designed to automatically enrich video content with contextual knowledge cards. The system analyzes spoken content, identifies key entities, and overlays relevant visual information sourced from Wikipedia and global news publications.
 
-## 🚀 Features
-- **Speech to Text**: Multi-language transcription using OpenAI Whisper.
-- **Entity Extraction**: Zero-shot Named Entity Recognition (NER) using GLiNER.
-- **Agentic Search**: Intelligent search across Wikipedia and global News sources.
-- **Semantic Ranking**: Results are ranked by relevance to your video's context.
-- **Professional Overlays**: Automated FFmpeg-based knowledge card overlays.
+## Key Features
 
-## 📁 Project Structure
-- **/py**: Python implementation (GUI, AI Processing).
-  - `gui.py`: The professional editor interface.
-  - `processor/`: The AI engine modules.
-  - `run.sh`: Startup script.
-- **/go**: Placeholder for Go-based implementations/services.
+- **Automated Transcription**: Uses OpenAI Whisper (Tiny model) for efficient speech-to-text processing.
+- **Advanced Entity Recognition**: Implements GLiner (Small-v2.1) for high-accuracy, zero-shot entity extraction including people, organizations, and concepts.
+- **Context-Aware Retrieval**: Employs an agentic search mechanism that queries Wikipedia and News sources, ranking results using semantic embeddings (all-MiniLM-L6-v2) to ensure contextual relevance.
+- **Seamless Rendering**: Automatically overlays high-quality article screenshots as knowledge cards using FFmpeg at precise video timestamps.
+- **Optimized Performance**: Configured with lightweight English-optimized models to ensure minimal memory footprint and faster processing times.
 
-## 🛠️ Setup & Usage
+## Project Structure
 
-### 1. Requirements
-Ensure you have `ffmpeg` installed on your system.
+- **py/**: Core Python implementation.
+  - **gui.py**: Graphical User Interface developed with PySide6.
+  - **main.py**: Application entry point with specialized compatibility patches.
+  - **processor/**: Modular AI engine including speech-to-text, NLP, retrieval, and rendering engines.
+  - **ml_service/**: FastAPI-based microservice for remote video analysis.
+  - **setup_models.py**: Utility to pre-cache all required AI models.
+- **go/**: Infrastructure for Go-based services and extensions.
 
-### 2. Installation
-Navigate to the `py` directory and install dependencies:
+## Setup and Installation
+
+### 1. Prerequisites
+- FFmpeg must be installed and available in your system path.
+- Python 3.10 or higher.
+
+### 2. Dependency Installation
+Navigate to the Python directory and initialize the virtual environment:
+
 ```bash
 cd py
 python -m venv .venv
@@ -30,22 +36,32 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 3. Preheat Models (Optional but Recommended)
-Download the AI models beforehand to ensure smooth editing:
+### 3. Model Pre-download (Recommended)
+To avoid delays during the first run, download the required AI models to the local cache:
+
 ```bash
-./setup_models.py
+./.venv/bin/python setup_models.py
 ```
 
-### 4. Run the Editor
+### 4. Running the Application
+Launch the desktop editor:
+
 ```bash
-./run.sh
+bash run.sh
 ```
 
-## 🧠 Technology Stack
-- **GUI**: PySide6 (Qt)
-- **AI Models**: 
-  - `faster-whisper` (Speech)
-  - `gliner` (NER)
-  - `sentence-transformers` (Ranking)
-- **Backend**: Python 3.10+
-- **Video Engine**: FFmpeg
+To run the ML microservice:
+
+```bash
+bash run_service.sh
+```
+
+## Technical Specifications
+
+- **Frontend**: PySide6 (Qt for Python).
+- **Audio Processing**: faster-whisper.
+- **NLP Engine**: GLiNER (Zero-shot Named Entity Recognition).
+- **Information Retrieval**: Wikipedia API and DuckDuckGo Search.
+- **Semantic Ranking**: Sentence-Transformers (all-MiniLM-L6-v2).
+- **Video Processing**: FFmpeg (libx264).
+- **Microservice Framework**: FastAPI and Uvicorn.
