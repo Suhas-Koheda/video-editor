@@ -1,0 +1,10 @@
+PySide6
+wikipedia
+sentence-transformers
+duckduckgo-search
+torch
+gliner
+nltk
+faster-whisper
+requests
+huggingface-hub
