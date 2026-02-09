@@ -10,25 +10,22 @@ try:
     ph = Posthog(
         project_api_key=POSTHOG_KEY,
         host=POSTHOG_HOST,
-        debug=True
     )
 except Exception as e:
-    print(f"Warning: Analytics could not be initialized: {e}")
+    pass
 def track(event, data=None):
     if ph:
         try:
-            print(f"[PostHog] Tracking event: {event}")
             ph.capture(
                 distinct_id="anonymous_user",
                 event=event,
                 properties=data or {}
             )
         except Exception as e:
-            print(f"[PostHog] Error capturing event: {e}")
+            pass
 
 def shutdown_tracker():
     if ph:
-        print("[PostHog] Shutting down and flushing analytics queue...")
         try:
             ph.shutdown()
         except:
