@@ -3,17 +3,55 @@ from PySide6.QtWidgets import *
 from PySide6.QtGui import *
 import sys
 import os
+import csv
+import re
+import io
+
+def format_seconds_to_min_sec(seconds):
+    minutes = int(seconds // 60)
+    secs = int(seconds % 60)
+    return f"{minutes:02d}:{secs:02d}"
+
+class StreamRedirector:
+    def __init__(self, log_signal, progress_signal):
+        self.log_signal = log_signal
+        self.progress_signal = progress_signal
+        self.buffer = ""
+
+    def write(self, text):
+        if not text: return
+        self.log_signal.emit(text.strip())
+        
+        # Simple percentage parsing for tqdm/huggingface bars
+        # Look for things like "100%" or "45%"
+        matches = re.findall(r"(\d+)%", text)
+        if matches:
+            try:
+                self.progress_signal.emit(int(matches[-1]))
+            except: pass
+
+    def flush(self):
+        pass
 
 class AnalysisWorker(QThread):
     finished = Signal(list)
     error = Signal(str)
     status = Signal(str)
+    log = Signal(str)
+    progress = Signal(int)
 
     def __init__(self, video_path):
         super().__init__()
         self.video_path = video_path
 
     def run(self):
+        # Redirect stdout and stderr to capture library logs and tqdm bars
+        old_stdout = sys.stdout
+        old_stderr = sys.stderr
+        redirector = StreamRedirector(self.log, self.progress)
+        sys.stdout = redirector
+        sys.stderr = redirector
+
         try:
             from processor.video_processor import extract_audio
             from processor.speech_to_text import transcribe_audio_with_timestamps
@@ -42,6 +80,9 @@ class AnalysisWorker(QThread):
             self.finished.emit(segments)
         except Exception as e:
             self.error.emit(str(e))
+        finally:
+            sys.stdout = old_stdout
+            sys.stderr = old_stderr
 
 class SearchWorker(QThread):
     finished = Signal(list)
@@ -116,10 +157,44 @@ class EditorApp(QMainWindow):
 
         self.loading_page = QWidget()
         loading_layout = QVBoxLayout(self.loading_page)
+        loading_layout.addStretch(1)
+        
         self.load_status = QLabel("Ready")
         self.load_status.setAlignment(Qt.AlignCenter)
-        self.load_status.setStyleSheet("font-size: 20px; font-weight: bold;")
+        self.load_status.setStyleSheet("font-size: 22px; font-weight: bold; color: #007acc; margin-bottom: 20px;")
         loading_layout.addWidget(self.load_status)
+
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setFixedHeight(30)
+        self.progress_bar.setStyleSheet("""
+            QProgressBar {
+                border: 2px solid #3d3d3d;
+                border-radius: 10px;
+                text-align: center;
+                background-color: #2d2d2d;
+            }
+            QProgressBar::chunk {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #007acc, stop:1 #1c97ea);
+                border-radius: 8px;
+            }
+        """)
+        loading_layout.addWidget(self.progress_bar)
+
+        self.log_console = QPlainTextEdit()
+        self.log_console.setReadOnly(True)
+        self.log_console.setStyleSheet("""
+            background-color: #0c0c0c;
+            color: #00ff41;
+            font-family: 'Consolas', 'Courier New';
+            font-size: 11px;
+            border: 1px solid #3d3d3d;
+            border-radius: 5px;
+            margin-top: 20px;
+        """)
+        self.log_console.setMinimumHeight(250)
+        loading_layout.addWidget(self.log_console)
+        
+        loading_layout.addStretch(1)
         self.stack.addWidget(self.loading_page)
 
         self.editor_page = QWidget()
@@ -151,6 +226,16 @@ class EditorApp(QMainWindow):
         mid_layout.addWidget(self.ent_list)
         mid_layout.addWidget(QLabel("Wikipedia Articles (Choose one)"))
         mid_layout.addWidget(self.wiki_list)
+        
+        url_layout = QHBoxLayout()
+        self.custom_url_input = QLineEdit()
+        self.custom_url_input.setPlaceholderText("Or paste any article URL here...")
+        self.btn_use_url = QPushButton("CAPTURE URL")
+        self.btn_use_url.clicked.connect(self.on_custom_url_submitted)
+        url_layout.addWidget(self.custom_url_input)
+        url_layout.addWidget(self.btn_use_url)
+        mid_layout.addLayout(url_layout)
+        
         editor_layout.addWidget(mid_panel, 1)
 
         right_panel = QWidget()
@@ -176,17 +261,30 @@ class EditorApp(QMainWindow):
         if file_path:
             self.video_path = file_path
             self.stack.setCurrentIndex(1)
+            self.progress_bar.setValue(0)
+            self.log_console.clear()
+            self.load_status.setText("Initializing...")
+            
             self.worker = AnalysisWorker(file_path)
             self.worker.status.connect(self.load_status.setText)
+            self.worker.log.connect(self.append_log)
+            self.worker.progress.connect(self.progress_bar.setValue)
             self.worker.finished.connect(self.on_analysis_complete)
             self.worker.error.connect(self.on_error)
             self.worker.start()
+
+    def append_log(self, text):
+        self.log_console.appendPlainText(text)
+        # Auto-scroll
+        self.log_console.verticalScrollBar().setValue(self.log_console.verticalScrollBar().maximum())
 
     def on_analysis_complete(self, segments):
         self.segments = segments
         self.seg_list.clear()
         for i, seg in enumerate(segments):
-            item = QListWidgetItem(f"[{seg['start']:.1f}s - {seg['end']:.1f}s] {seg['text'][:35]}...")
+            start_fmt = format_seconds_to_min_sec(seg['start'])
+            end_fmt = format_seconds_to_min_sec(seg['end'])
+            item = QListWidgetItem(f"[{start_fmt} - {end_fmt}] {seg['text'][:35]}...")
             self.seg_list.addItem(item)
         self.stack.setCurrentIndex(2)
 
@@ -200,11 +298,13 @@ class EditorApp(QMainWindow):
             self.ent_list.addItem(f"{ent['text']} ({ent['label']})")
         
         self.wiki_list.clear()
-        if seg['selected_wiki']:
+        if seg.get('selected_wiki'):
              self.wiki_list.addItem(f"SELECTED: {seg['selected_wiki']}")
-             if seg['screenshot_path']:
+             self.custom_url_input.setText(seg.get('selected_wiki_url', ''))
+             if seg.get('screenshot_path'):
                  self.update_preview(seg['screenshot_path'])
         else:
+             self.custom_url_input.clear()
              self.preview_label.setText("Select an entity and a Wiki article to preview the card.")
              self.preview_label.setPixmap(QPixmap())
         
@@ -244,7 +344,29 @@ class EditorApp(QMainWindow):
              
         seg = self.segments[self.current_seg_index]
         seg['selected_wiki'] = title
+        seg['selected_wiki_url'] = url
+        self.custom_url_input.setText(url)
         
+        self.capture_and_preview(url, title)
+
+    def on_custom_url_submitted(self):
+        url = self.custom_url_input.text().strip()
+        if not url:
+            return
+            
+        if self.current_seg_index == -1:
+            QMessageBox.warning(self, "No Segment", "Please select a segment first.")
+            return
+
+        title = url.split("//")[-1].split("/")[0] # Simple title from domain
+        seg = self.segments[self.current_seg_index]
+        seg['selected_wiki'] = f"[Custom] {title}"
+        seg['selected_wiki_url'] = url
+        
+        self.capture_and_preview(url, seg['selected_wiki'])
+
+    def capture_and_preview(self, url, title):
+        seg = self.segments[self.current_seg_index]
         self.preview_label.setText(f"Capturing screenshot from {title}...")
         QApplication.processEvents()
         
@@ -279,7 +401,24 @@ class EditorApp(QMainWindow):
         self.render_worker.start()
 
     def on_render_finished(self, output):
-        QMessageBox.information(self, "Success", f"Professional knowledge video generated!\n\nSaved to: {output}")
+        csv_path = output.rsplit(".", 1)[0] + "_knowledge_links.csv"
+        try:
+            with open(csv_path, mode='w', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                writer.writerow(["Start Time", "End Time", "Article Title", "URL"])
+                for seg in self.segments:
+                    if seg.get('screenshot_path'):
+                        writer.writerow([
+                            format_seconds_to_min_sec(seg['start']),
+                            format_seconds_to_min_sec(seg['end']),
+                            seg.get('selected_wiki', 'N/A'),
+                            seg.get('selected_wiki_url', 'N/A')
+                        ])
+            msg_add = f"\n\nReference links saved to: {csv_path}"
+        except Exception as e:
+            msg_add = f"\n\n(Note: CSV export failed: {e})"
+
+        QMessageBox.information(self, "Success", f"Professional knowledge video generated!\n\nSaved to: {output}{msg_add}")
         self.stack.setCurrentIndex(0)
 
     def on_error(self, message):

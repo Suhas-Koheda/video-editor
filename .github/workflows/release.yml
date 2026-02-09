@@ -1,0 +1,76 @@
+name: Package Application
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            artifact_name: KnowledgeEditor-Linux
+            executable_path: dist/main
+          - os: windows-latest
+            artifact_name: KnowledgeEditor-Windows
+            executable_path: dist/main.exe
+          - os: macos-latest
+            artifact_name: KnowledgeEditor-Mac
+            executable_path: dist/main.app
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r py/requirements.txt
+          pip install pyinstaller
+
+      - name: Build with PyInstaller
+        run: |
+            cd py
+            pyinstaller --noconfirm --onefile --windowed \
+            --name "KnowledgeEditor" \
+            --collect-all torch \
+            --collect-all gliner \
+            --collect-all faster_whisper \
+            --hidden-import "av.subtitles" \
+            --hidden-import "av.subtitles.stream" \
+            main.py
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: py/${{ matrix.executable_path }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            KnowledgeEditor-Linux/KnowledgeEditor
+            KnowledgeEditor-Windows/KnowledgeEditor.exe
+            KnowledgeEditor-Mac/KnowledgeEditor
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

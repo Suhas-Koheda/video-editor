@@ -65,3 +65,26 @@ bash run_service.sh
 - **Semantic Ranking**: Sentence-Transformers (all-MiniLM-L6-v2).
 - **Video Processing**: FFmpeg (libx264).
 - **Microservice Framework**: FastAPI and Uvicorn.
+
+## Packaging & Release
+
+### Automated Releases (Recommended)
+This project is configured with GitHub Actions to automatically build standalone binaries for Windows, macOS, and Linux.
+1. Push a version tag to your repository (e.g., `git tag v1.0.0 && git push origin v1.0.0`).
+2. Navigate to the **Actions** tab in your GitHub repository.
+3. The "Package Application" workflow will generate the binaries and create a GitHub Release.
+
+### Local Builds
+You can generate a standalone executable on your own machine using the provided scripts:
+
+**Linux:**
+```bash
+cd py
+bash build_linux.sh
+```
+
+**Windows:**
+1. Open Command Prompt or PowerShell in the `py` directory.
+2. Run `build_windows.bat`.
+
+**Standalone Note**: The resulting executables are "one-file" bundles. Because they include high-performance libraries like Torch and FFmpeg bindings, the initial file size will be large (approx. 1.2GB - 2GB).

@@ -1,7 +1,7 @@
 PySide6
 wikipedia
 sentence-transformers
-duckduckgo-search
+ddgs
 torch
 gliner
 nltk

@@ -1,6 +1,6 @@
 import wikipedia
 from sentence_transformers import SentenceTransformer, util
-from duckduckgo_search import DDGS
+from ddgs import DDGS
 import torch
 
 import os
