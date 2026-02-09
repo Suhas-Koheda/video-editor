@@ -2,8 +2,8 @@ import wikipedia
 from sentence_transformers import SentenceTransformer, util
 from ddgs import DDGS
 import torch
-
 import os
+from processor.config import get_sentence_transformer_model, get_model_mode
 
 CACHE_DIR = os.path.join(os.getcwd(), ".model_cache")
 
@@ -17,16 +17,17 @@ def agentic_search(segment_text, entity_text, search_type="all", language="en"):
     global _embedder
     if _embedder is None:
         try:
-            print(f"Loading Semantic Ranker (English Small)...")
-            _embedder = SentenceTransformer('all-MiniLM-L6-v2', cache_folder=CACHE_DIR)
-            print("✓ Semantic Ranker loaded.")
+            model_name = get_sentence_transformer_model()
+            _embedder = SentenceTransformer(model_name, cache_folder=CACHE_DIR)
         except Exception as e:
             print(f"Warning: Could not load semantic ranker: {e}. Falling back to basic search.")
             _embedder = "FAILED"
 
-    # Force English for small model usage
-    language = "en"
-    wikipedia.set_lang("en")
+    # Respect chosen mode
+    if get_model_mode() == "english":
+        language = "en"
+    
+    wikipedia.set_lang(language)
 
     results = []
     

@@ -3,8 +3,8 @@ import nltk
 from nltk.tokenize import word_tokenize
 from nltk.tag import pos_tag
 from nltk.chunk import RegexpParser
-
 import os
+from processor.config import get_gliner_model
 
 CACHE_DIR = os.path.join(os.getcwd(), ".model_cache")
 
@@ -16,10 +16,9 @@ def get_entities_and_nouns(text):
     """
     global _gliner_model
     if _gliner_model is None:
-        print("Loading English GLiNER (Small) model for Entity Extraction...")
-        _gliner_model = GLiNER.from_pretrained("urchade/gliner_small-v2.1", cache_dir=CACHE_DIR)
-        print("✓ GLiNER loaded.")
-
+        model_path = get_gliner_model()
+        _gliner_model = GLiNER.from_pretrained(model_path, cache_dir=CACHE_DIR)
+    
     labels = ["Person", "Organization", "Location", "Social Group", "Concept", "Phrase", "Politician", "Event", "Sentiment"]
     entities = _gliner_model.predict_entities(text, labels, threshold=0.3)
     
@@ -77,4 +76,4 @@ def unload_nlp_model():
         gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-        print("NLP model unloaded successfully.")
+        pass

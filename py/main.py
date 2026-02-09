@@ -16,12 +16,15 @@ if not hasattr(av, 'subtitles'):
     sub_mod.stream = stream_mod
     sys.modules["av.subtitles.stream"] = stream_mod
 
-from PySide6.QtWidgets import QApplication
 from gui import EditorApp
-
+from processor.tracker_cloud import ph
+from PySide6.QtWidgets import QApplication
 app = QApplication(sys.argv)
 
 window = EditorApp()
 window.show()
 
-sys.exit(app.exec())
+exit_code = app.exec()
+if ph:
+    ph.shutdown()
+sys.exit(exit_code)

@@ -1,12 +1,14 @@
 import subprocess
 import os
+import time
 
 def render_with_screenshots(video_path, render_plan):
     """
     Renders the final video by overlaying Wikipedia screenshots at specified timestamps.
     render_plan is a list of segments: [{'start', 'end', 'screenshot_path'}, ...]
     """
-    output_path = "output/final_project.mp4"
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    output_path = f"output/final_project_{timestamp}.mp4"
     os.makedirs("output", exist_ok=True)
 
     inputs = ["-i", video_path]
@@ -19,7 +21,7 @@ def render_with_screenshots(video_path, render_plan):
         label = f"[v{i+1}]"
         screenshot_idx = i + 1
         
-        part = f"[{screenshot_idx}:v]scale=400:-1[img{i}]; {prev_label}[img{i}]overlay=x=40:y=40:enable='between(t,{seg['start']},{seg['end']})'"
+        part = f"[{screenshot_idx}:v]scale=400:-1[img{i}]; {prev_label}[img{i}]overlay=x=40:y=40:format=auto:enable='between(t,{seg['start']},{seg['end']})'"
         
         if i == len(render_plan) - 1:
             filter_parts.append(part)

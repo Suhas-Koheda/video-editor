@@ -1,5 +1,6 @@
 from faster_whisper import WhisperModel
 import os
+from processor.config import get_whisper_model
 
 CACHE_DIR = os.path.join(os.getcwd(), ".model_cache")
 
@@ -11,14 +12,13 @@ def transcribe_audio_with_timestamps(audio_path):
     """
     global _model
     if _model is None:
-        print("Loading Whisper 'tiny' model for Speech-to-Text...")
+        model_name = get_whisper_model()
         _model = WhisperModel(
-            "tiny", 
+            model_name, 
             device="cpu", 
             compute_type="int8", 
             download_root=os.path.join(CACHE_DIR, "whisper")
         )
-        print("✓ Whisper loaded.")
     
     segments, info = _model.transcribe(audio_path, beam_size=5)
     
@@ -42,4 +42,4 @@ def unload_whisper_model():
         del _model
         _model = None
         gc.collect()
-        print("Whisper model unloaded successfully.")
+        pass

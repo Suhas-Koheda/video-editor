@@ -6,6 +6,7 @@ import os
 import csv
 import re
 import io
+from processor.tracker_cloud import track
 
 def format_seconds_to_min_sec(seconds):
     minutes = int(seconds // 60)
@@ -32,6 +33,9 @@ class StreamRedirector:
 
     def flush(self):
         pass
+
+    def isatty(self):
+        return False
 
 class AnalysisWorker(QThread):
     finished = Signal(list)
@@ -64,13 +68,19 @@ class AnalysisWorker(QThread):
             segments, language = transcribe_audio_with_timestamps(audio_path)
             self.detected_language = language
 
-            self.status.emit(f"Analyzing {language.upper()} entities (NER/POS)...")
-            for seg in segments:
+            total_segs = len(segments)
+            self.status.emit(f"Analyzing {language.upper()} entities...")
+            for i, seg in enumerate(segments):
+                self.progress.emit(int((i / total_segs) * 100))
                 seg['entities'] = get_entities_and_nouns(seg['text'])
                 seg['selected_wiki'] = None 
+                seg['selected_wiki_url'] = None
+                seg['y_offset'] = 0
                 seg['screenshot_path'] = None
                 seg['language'] = language
                 seg['candidates'] = []
+
+            self.progress.emit(100)
 
             from processor.nlp_engine import unload_nlp_model
             from processor.speech_to_text import unload_whisper_model
@@ -130,6 +140,7 @@ class EditorApp(QMainWindow):
         self.current_seg_index = -1
 
         self.init_ui()
+        track("app_started")
 
     def init_ui(self):
         self.setStyleSheet("""
@@ -146,6 +157,36 @@ class EditorApp(QMainWindow):
 
         self.stack = QStackedWidget()
         self.setCentralWidget(self.stack)
+
+        # Selection Page
+        self.selection_page = QWidget()
+        selection_layout = QVBoxLayout(self.selection_page)
+        selection_layout.addStretch(1)
+        
+        sel_label = QLabel("SELECT PROCESSING MODE")
+        sel_label.setAlignment(Qt.AlignCenter)
+        sel_label.setStyleSheet("font-size: 24px; font-weight: bold; color: #007acc; margin-bottom: 20px;")
+        selection_layout.addWidget(sel_label)
+
+        sub_label = QLabel("This determines the AI models used for transcription and analysis")
+        sub_label.setAlignment(Qt.AlignCenter)
+        sub_label.setStyleSheet("font-size: 14px; color: #888; margin-bottom: 40px;")
+        selection_layout.addWidget(sub_label)
+
+        btn_en = QPushButton("ENGLISH MODE\n(Optimized for English, smaller models)")
+        btn_en.setFixedSize(400, 80)
+        btn_en.clicked.connect(lambda: self.select_mode("english"))
+        selection_layout.addWidget(btn_en, 0, Qt.AlignCenter)
+        
+        selection_layout.addSpacing(20)
+
+        btn_multi = QPushButton("MULTILINGUAL MODE\n(Supports Hindi, Tamil, etc., larger models)")
+        btn_multi.setFixedSize(400, 80)
+        btn_multi.clicked.connect(lambda: self.select_mode("multilingual"))
+        selection_layout.addWidget(btn_multi, 0, Qt.AlignCenter)
+
+        selection_layout.addStretch(1)
+        self.stack.addWidget(self.selection_page)
 
         self.start_page = QWidget()
         start_layout = QVBoxLayout(self.start_page)
@@ -245,22 +286,40 @@ class EditorApp(QMainWindow):
         self.preview_label.setWordWrap(True)
         self.preview_label.setStyleSheet("border: 2px dashed #444; border-radius: 10px; padding: 20px;")
         
+        scroll_group = QWidget()
+        scroll_layout = QHBoxLayout(scroll_group)
+        # scroll_layout.addWidget(QLabel("Scroll Offset (Y):"))
+        # self.scroll_input = QSpinBox()
+        # self.scroll_input.setRange(0, 10000)
+        # self.scroll_input.setSingleStep(300)
+        # self.scroll_input.setSuffix(" px")
+        # self.btn_apply_scroll = QPushButton("APPLY SCROLL")
+        # self.btn_apply_scroll.clicked.connect(self.on_refresh_with_scroll)
+        # scroll_layout.addWidget(self.scroll_input)
+        # scroll_layout.addWidget(self.btn_apply_scroll)
+        
         self.btn_render = QPushButton("FINALIZE & RENDER VIDEO")
         self.btn_render.setFixedHeight(50)
         self.btn_render.clicked.connect(self.start_render)
         
         right_layout.addWidget(QLabel("Knowledge Card Preview"))
         right_layout.addWidget(self.preview_label, 5)
+        right_layout.addWidget(scroll_group)
         right_layout.addWidget(self.btn_render, 1)
         editor_layout.addWidget(right_panel, 1)
 
         self.stack.addWidget(self.editor_page)
 
+    def select_mode(self, mode):
+        from processor.config import set_model_mode
+        set_model_mode(mode)
+        self.stack.setCurrentIndex(1)
+
     def upload_video(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "Open Video", "", "Video Files (*.mp4 *.mov *.avi)")
         if file_path:
             self.video_path = file_path
-            self.stack.setCurrentIndex(1)
+            self.stack.setCurrentIndex(2)
             self.progress_bar.setValue(0)
             self.log_console.clear()
             self.load_status.setText("Initializing...")
@@ -272,6 +331,7 @@ class EditorApp(QMainWindow):
             self.worker.finished.connect(self.on_analysis_complete)
             self.worker.error.connect(self.on_error)
             self.worker.start()
+            track("video_uploaded", {"path": file_path})
 
     def append_log(self, text):
         self.log_console.appendPlainText(text)
@@ -280,13 +340,22 @@ class EditorApp(QMainWindow):
 
     def on_analysis_complete(self, segments):
         self.segments = segments
+        self.update_segment_list()
+        self.stack.setCurrentIndex(3)
+        track("analysis_complete", {"segments_count": len(segments)})
+
+    def update_segment_list(self):
         self.seg_list.clear()
-        for i, seg in enumerate(segments):
+        for i, seg in enumerate(self.segments):
             start_fmt = format_seconds_to_min_sec(seg['start'])
-            end_fmt = format_seconds_to_min_sec(seg['end'])
-            item = QListWidgetItem(f"[{start_fmt} - {end_fmt}] {seg['text'][:35]}...")
+            marker = "⚪"
+            if seg.get('screenshot_path'):
+                marker = "🟢"
+            elif seg.get('entities'):
+                marker = "🟠"
+                
+            item = QListWidgetItem(f"{marker} [{start_fmt}] {seg['text'][:35]}...")
             self.seg_list.addItem(item)
-        self.stack.setCurrentIndex(2)
 
     def on_segment_selected(self, item):
         self.current_seg_index = self.seg_list.currentRow()
@@ -301,10 +370,12 @@ class EditorApp(QMainWindow):
         if seg.get('selected_wiki'):
              self.wiki_list.addItem(f"SELECTED: {seg['selected_wiki']}")
              self.custom_url_input.setText(seg.get('selected_wiki_url', ''))
+             # self.scroll_input.setValue(seg.get('y_offset', 0))
              if seg.get('screenshot_path'):
                  self.update_preview(seg['screenshot_path'])
         else:
              self.custom_url_input.clear()
+             # self.scroll_input.setValue(0)
              self.preview_label.setText("Select an entity and a Wiki article to preview the card.")
              self.preview_label.setPixmap(QPixmap())
         
@@ -343,6 +414,9 @@ class EditorApp(QMainWindow):
              return
              
         seg = self.segments[self.current_seg_index]
+        if seg.get('selected_wiki') and seg['selected_wiki'] != title:
+            track("overlay_overridden", {"old": seg['selected_wiki'], "new": title})
+            
         seg['selected_wiki'] = title
         seg['selected_wiki_url'] = url
         self.custom_url_input.setText(url)
@@ -367,16 +441,30 @@ class EditorApp(QMainWindow):
 
     def capture_and_preview(self, url, title):
         seg = self.segments[self.current_seg_index]
+        y_offset = 0 # self.scroll_input.value()
+        seg['y_offset'] = y_offset
+        
         self.preview_label.setText(f"Capturing screenshot from {title}...")
         QApplication.processEvents()
         
         from processor.screenshot_engine import capture_article_screenshot
-        path = capture_article_screenshot(url, f"seg_{self.current_seg_index}")
+        path = capture_article_screenshot(url, f"seg_{self.current_seg_index}", y_offset=y_offset)
         seg['screenshot_path'] = path
         if path:
             self.update_preview(path)
+            self.update_segment_list()
         else:
             self.preview_label.setText("Failed to capture. Check connection.")
+
+    def on_refresh_with_scroll(self):
+        if self.current_seg_index == -1: return
+        seg = self.segments[self.current_seg_index]
+        url = seg.get('selected_wiki_url')
+        if not url:
+            url = self.custom_url_input.text().strip()
+        
+        if url:
+            self.capture_and_preview(url, seg.get('selected_wiki', 'Current Page'))
 
     def update_preview(self, path):
         pixmap = QPixmap(path)
@@ -392,13 +480,14 @@ class EditorApp(QMainWindow):
             QMessageBox.warning(self, "No Selections", "Please select at least one Wikipedia article to overlay.")
             return
 
-        self.stack.setCurrentIndex(1)
+        self.stack.setCurrentIndex(2)
         self.load_status.setText("RENDERING INTELLIGENCE LAYER...\nPlease wait, encoding video.")
         
         self.render_worker = RenderWorker(self.video_path, render_plan)
         self.render_worker.finished.connect(self.on_render_finished)
         self.render_worker.error.connect(self.on_error)
         self.render_worker.start()
+        track("render_started", {"overlays_count": len(render_plan)})
 
     def on_render_finished(self, output):
         csv_path = output.rsplit(".", 1)[0] + "_knowledge_links.csv"
@@ -420,9 +509,10 @@ class EditorApp(QMainWindow):
 
         QMessageBox.information(self, "Success", f"Professional knowledge video generated!\n\nSaved to: {output}{msg_add}")
         self.stack.setCurrentIndex(0)
+        track("render_finished", {"output_path": output})
 
     def on_error(self, message):
-        self.stack.setCurrentIndex(2)
+        self.stack.setCurrentIndex(3)
         QMessageBox.critical(self, "System Error", f"An operation failed:\n{message}")
 
 

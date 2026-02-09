@@ -19,3 +19,17 @@ all_files.txt
 py/.model_cache/
 models/
 py/models/
+
+# Build and Distribution
+**/build/
+**/dist/
+**/*.spec
+py/KnowledgeEditor
+KnowledgeEditor.app
+KnowledgeEditor.exe
+KnowledgeEditor
+
+# Logs
+pip-log.txt
+pip-delete-this-directory.txt
+**/__pycache__/

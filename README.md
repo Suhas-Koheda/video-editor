@@ -5,10 +5,21 @@ A specialized AI-powered video editing tool designed to automatically enrich vid
 ## Key Features
 
 - **Automated Transcription**: Uses OpenAI Whisper (Tiny model) for efficient speech-to-text processing.
-- **Advanced Entity Recognition**: Implements GLiner (Small-v2.1) for high-accuracy, zero-shot entity extraction including people, organizations, and concepts.
-- **Context-Aware Retrieval**: Employs an agentic search mechanism that queries Wikipedia and News sources, ranking results using semantic embeddings (all-MiniLM-L6-v2) to ensure contextual relevance.
-- **Seamless Rendering**: Automatically overlays high-quality article screenshots as knowledge cards using FFmpeg at precise video timestamps.
-- **Optimized Performance**: Configured with lightweight English-optimized models to ensure minimal memory footprint and faster processing times.
+- **Advanced Entity Recognition**: Implements GLiner (Small-v2.1 or Multi-v2.1) for high-accuracy, zero-shot entity extraction including people, organizations, and concepts.
+- **Context-Aware Retrieval**: Employs an agentic search mechanism that queries Wikipedia and News sources, ranking results using semantic embeddings to ensure contextual relevance.
+- **Performance Optimization**: Toggle between English-optimized and Multilingual modes to balance speed and language support.
+- **Usage Analytics**: Integrated PostHog tracking for anonymous event monitoring and application performance metrics.
+- **Seamless Rendering**: Automatically overlays high-quality website screenshots as knowledge cards using thum.io and FFmpeg.
+
+## New Features
+
+- **Cloud Analytics**: Integrated PostHog integration for anonymous usage tracking and performance monitoring.
+- **Model Efficiency Modes**: Selective initialization between English-optimized and Multilingual models to optimize for hardware or language requirements.
+- **Website Screenshots**: Shifted from local card generation to high-fidelity thum.io web captures for more authentic information cards.
+- **Real-time Feedback**: Added an integrated terminal log and progress bar for transparent model downloads and processing status.
+- **Interactive Bibliography**: Automatically exports a CSV file (`_knowledge_links.csv`) alongside every rendered video, containing timestamps and article URLs.
+- **Custom URL Support**: Users can manually paste any article URL to capture a custom knowledge card.
+- **Timeline Formatting**: Timeline segments are displayed in MM:SS format for improved navigation.
 
 ## Project Structure
 
@@ -16,6 +27,7 @@ A specialized AI-powered video editing tool designed to automatically enrich vid
   - **gui.py**: Graphical User Interface developed with PySide6.
   - **main.py**: Application entry point with specialized compatibility patches.
   - **processor/**: Modular AI engine including speech-to-text, NLP, retrieval, and rendering engines.
+  - **processor/tracker_cloud.py**: PostHog analytics implementation.
   - **ml_service/**: FastAPI-based microservice for remote video analysis.
   - **setup_models.py**: Utility to pre-cache all required AI models.
 - **go/**: Infrastructure for Go-based services and extensions.
@@ -62,7 +74,8 @@ bash run_service.sh
 - **Audio Processing**: faster-whisper.
 - **NLP Engine**: GLiNER (Zero-shot Named Entity Recognition).
 - **Information Retrieval**: Wikipedia API and DuckDuckGo Search.
-- **Semantic Ranking**: Sentence-Transformers (all-MiniLM-L6-v2).
+- **Semantic Ranking**: Sentence-Transformers (all-MiniLM-L6-v2 / L12-v2).
+- **Analytics**: PostHog.
 - **Video Processing**: FFmpeg (libx264).
 - **Microservice Framework**: FastAPI and Uvicorn.
 
