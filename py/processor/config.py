@@ -1,6 +1,6 @@
 import os
 
-# "english" or "multilingual"
+
 MODEL_MODE = os.environ.get("ANTIGRAVITY_MODEL_MODE", "english")
 
 def set_model_mode(mode):

@@ -1,7 +1,7 @@
 from posthog import Posthog
 import os
 
-# Get API key from environment or use placeholder
+
 POSTHOG_KEY = os.environ.get("POSTHOG_API_KEY", "phc_sCjB9GVPTUw1v1wxa57neDkTyX2i16YVjsR0Jk8uEwp")
 POSTHOG_HOST = "https://us.i.posthog.com"
 

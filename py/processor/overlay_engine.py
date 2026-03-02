@@ -14,15 +14,15 @@ def render_with_screenshots(video_path, render_plan):
     inputs = ["-i", video_path]
     filter_parts = []
     prev_label = "[0:v]"
-    
+
     for i, seg in enumerate(render_plan):
         inputs.extend(["-i", seg['screenshot_path']])
-        
+
         label = f"[v{i+1}]"
         screenshot_idx = i + 1
-        
+
         part = f"[{screenshot_idx}:v]scale=400:-1[img{i}]; {prev_label}[img{i}]overlay=x=40:y=40:format=auto:enable='between(t,{seg['start']},{seg['end']})'"
-        
+
         if i == len(render_plan) - 1:
             filter_parts.append(part)
         else:
@@ -44,8 +44,8 @@ def render_with_screenshots(video_path, render_plan):
 
     print(f"Executing Rendering: {' '.join(command)}")
     result = subprocess.run(command, capture_output=True, text=True)
-    
+
     if result.returncode != 0:
         raise Exception(f"FFmpeg Rendering Failed: {result.stderr}")
-        
+
     return output_path

@@ -23,21 +23,17 @@ def agentic_search(segment_text, entity_text, search_type="all", language="en"):
             print(f"Warning: Could not load semantic ranker: {e}. Falling back to basic search.")
             _embedder = "FAILED"
 
-    # Respect chosen mode
+
     if get_model_mode() == "english":
         language = "en"
-    
+
     wikipedia.set_lang(language)
 
     results = []
-    
+
     if search_type in ["all", "wiki"]:
         try:
             wiki_queries = [entity_text]
-            if language in ["en", "hi", "te", "ta", "mr", "bn"]:
-                if "youth" in segment_text.lower() or "population" in segment_text.lower():
-                     wiki_queries.append("Demographics of India")
-
             for q in wiki_queries:
                 search_results = wikipedia.search(q, results=3)
                 for title in search_results:
@@ -51,7 +47,7 @@ def agentic_search(segment_text, entity_text, search_type="all", language="en"):
     if search_type in ["all", "news"]:
         try:
             with DDGS() as ddgs:
-                news_query = f"{entity_text} news" 
+                news_query = f"{entity_text} news"
                 news_results = list(ddgs.text(news_query, max_results=5))
                 for r in news_results:
                     results.append({
@@ -63,14 +59,14 @@ def agentic_search(segment_text, entity_text, search_type="all", language="en"):
 
     if not results: return []
     if _embedder == "FAILED": return results
-    
+
     try:
         context_embedding = _embedder.encode(segment_text, convert_to_tensor=True)
         titles = [r['title'] for r in results]
         title_embeddings = _embedder.encode(titles, convert_to_tensor=True)
-        
+
         hits = util.semantic_search(context_embedding, title_embeddings, top_k=8)[0]
-        
+
         candidates = []
         for hit in hits:
             res = results[hit['corpus_id']]
@@ -79,7 +75,7 @@ def agentic_search(segment_text, entity_text, search_type="all", language="en"):
         return candidates
     except Exception as e:
         print(f"Semantic ranking failed: {e}")
-        return results 
+        return results
 
 def get_wiki_page_data(title):
     try:

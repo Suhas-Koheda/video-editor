@@ -14,7 +14,7 @@ os.environ["SENTENCE_TRANSFORMERS_HOME"] = CACHE_DIR
 def download_models(mode="english"):
     set_model_mode(mode)
     print(f"--- ANTIGRAVITY MODEL PRE-DOWNLOADER ({mode.upper()} MODE) ---")
-    
+
     gliner_path = get_gliner_model()
     print(f"\n[1/4] Downloading GLiNER ({gliner_path})...")
     try:
@@ -64,5 +64,5 @@ if __name__ == "__main__":
         choice = input("Enter Choice (1/2): ").strip()
         if choice == "2":
             mode = "multilingual"
-            
+
     download_models(mode)

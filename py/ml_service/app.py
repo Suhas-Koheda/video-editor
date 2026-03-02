@@ -1,18 +1,18 @@
 import sys
 import types
 import av
-# Enhanced Monkeypatch for PyAV 13.0.0+ 
+
 if not hasattr(av, 'subtitles'):
     sub_mod = types.ModuleType("subtitles")
     av.subtitles = sub_mod
     sys.modules["av.subtitles"] = sub_mod
-    
+
     stream_mod = types.ModuleType("stream")
-    # Define SubtitleStream to satisfy imports
+
     SubtitleStream = type("SubtitleStream", (), {})
     stream_mod.SubtitleStream = SubtitleStream
     sub_mod.SubtitleStream = SubtitleStream
-    
+
     sub_mod.stream = stream_mod
     sys.modules["av.subtitles.stream"] = stream_mod
 
@@ -37,7 +37,7 @@ def health():
 
 @app.post("/analyze_video")
 async def analyze_video(file: UploadFile = File(...)):
-    
+
     video_path = os.path.join(TEMP_DIR, file.filename)
 
     with open(video_path, "wb") as buffer:

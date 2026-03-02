@@ -18,10 +18,10 @@ def get_entities_and_nouns(text):
     if _gliner_model is None:
         model_path = get_gliner_model()
         _gliner_model = GLiNER.from_pretrained(model_path, cache_dir=CACHE_DIR)
-    
+
     labels = ["Person", "Organization", "Location", "Social Group", "Concept", "Phrase", "Politician", "Event", "Sentiment"]
     entities = _gliner_model.predict_entities(text, labels, threshold=0.3)
-    
+
     results = []
     for ent in entities:
         results.append({
@@ -32,11 +32,11 @@ def get_entities_and_nouns(text):
     try:
         tokens = word_tokenize(text)
         tagged = pos_tag(tokens)
-        
+
         grammar = "NP: {<JJ.*>*<NN.*>+}"
         cp = RegexpParser(grammar)
         tree = cp.parse(tagged)
-        
+
         for subtree in tree.subtrees(filter=lambda t: t.label() == 'NP'):
             phrase = " ".join([word for word, tag in subtree.leaves()])
             if len(phrase.split()) > 1:
@@ -47,20 +47,17 @@ def get_entities_and_nouns(text):
                     })
     except Exception as e:
         print(f"POS Tagging failed: {e}")
-
-    if "65%" in text and "Indian" in text:
-        results.append({"text": "Demographics of India", "label": "INFERRED"})
-
+        
     seen = set()
     final_unique = []
     results.sort(key=lambda x: len(x['text']), reverse=True)
-    
+
     for r in results:
         t = r['text'].lower().strip('., ')
         if t not in seen and len(t) > 3:
             final_unique.append(r)
             seen.add(t)
-            
+
     return final_unique[:12]
 
 def unload_nlp_model():

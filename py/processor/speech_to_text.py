@@ -14,14 +14,14 @@ def transcribe_audio_with_timestamps(audio_path):
     if _model is None:
         model_name = get_whisper_model()
         _model = WhisperModel(
-            model_name, 
-            device="cpu", 
-            compute_type="int8", 
+            model_name,
+            device="cpu",
+            compute_type="int8",
             download_root=os.path.join(CACHE_DIR, "whisper")
         )
-    
+
     segments, info = _model.transcribe(audio_path, beam_size=5)
-    
+
     results = []
     for segment in segments:
         results.append({
@@ -29,7 +29,7 @@ def transcribe_audio_with_timestamps(audio_path):
             "end": segment.end,
             "text": segment.text.strip()
         })
-    
+
     return results, info.language
 
 def unload_whisper_model():

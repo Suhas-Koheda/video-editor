@@ -1,5 +1,4 @@
 #!/bin/bash
-# Local Build Script for Linux
 
 echo "Setting up build environment..."
 ./.venv/bin/pip install pyinstaller
