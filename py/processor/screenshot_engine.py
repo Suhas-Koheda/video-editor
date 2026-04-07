@@ -1,37 +1,40 @@
-from PIL import Image, ImageDraw, ImageFont
 import os
-import requests
-from bs4 import BeautifulSoup
-import textwrap
-import io
-import wikipedia
 
 def capture_article_screenshot(url, filename, y_offset=0):
     """
-    Captures a website screenshot using thum.io API.
+    Captures a website screenshot using Playwright (Local Renderer).
     """
     os.makedirs("output/screenshots", exist_ok=True)
     final_output_path = f"output/screenshots/{filename}.png"
 
     try:
-
-
-
-        thum_url = f"https://image.thum.io/get/width/1000/crop/800/{url}"
-
-        print(f"[Screenshot] Requesting thum.io for {url}")
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
-        response = requests.get(thum_url, headers=headers, timeout=20)
-
-        if response.status_code == 200:
-            with open(final_output_path, 'wb') as f:
-                f.write(response.content)
-            print(f"[Screenshot] Saved to {final_output_path}")
+        from playwright.sync_api import sync_playwright
+        
+        print(f"[Screenshot] Launching Playwright to capture {url}...")
+        with sync_playwright() as p:
+            # Launch browser
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page(viewport={'width': 1280, 'height': 800})
+            
+            # Navigate to URL
+            page.goto(url, wait_until="networkidle", timeout=60000)
+            
+            # Apply vertical offset if specified
+            if y_offset > 0:
+                print(f"[Screenshot] Scrolling to y-offset: {y_offset}")
+                page.evaluate(f"window.scrollTo(0, {y_offset})")
+                # Wait a bit for lazy-loaded content to stabilize if any
+                page.wait_for_timeout(500)
+            
+            # Take screenshot
+            page.screenshot(path=final_output_path)
+            browser.close()
+            
+        if os.path.exists(final_output_path):
+            print(f"[Screenshot] Saved local Playwright render to {final_output_path}")
             return final_output_path
-        else:
-            print(f"[Screenshot] thum.io failed with status {response.status_code}")
-            return None
-
+            
     except Exception as e:
-        print(f"Failed to capture screenshot with thum.io: {e}")
-        return None
+        print(f"[Screenshot] Playwright Error: {e}")
+
+    return None

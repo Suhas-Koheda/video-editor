@@ -60,19 +60,89 @@ class AnalysisWorker(QThread):
             from processor.video_processor import extract_audio
             from processor.speech_to_text import transcribe_audio_with_timestamps
             from processor.nlp_engine import get_entities_and_nouns
+            from processor.translation_engine import translate_text
 
             self.status.emit("Extracting audio & detecting language...")
             audio_path = extract_audio(self.video_path)
 
             self.status.emit("Transcribing speech...")
-            segments, language = transcribe_audio_with_timestamps(audio_path)
+            print(f"[DEBUG] GUI Worker: calling transcribe_audio_with_timestamps...")
+            segments, language = transcribe_audio_with_timestamps(audio_path, video_path=self.video_path)
+            print(f"[DEBUG] GUI Worker: Transcription complete. Detected: {language}")
             self.detected_language = language
 
-            total_segs = len(segments)
-            self.status.emit(f"Analyzing {language.upper()} entities...")
+            INDIAN_LANGS = ['hi', 'mr', 'ta', 'te', 'kn', 'ml', 'bn', 'gu', 'pa', 'as', 'or']
+            is_indian = language in INDIAN_LANGS
+
+            # Batch Translate Segment Texts (to avoid rate limits)
+            texts_to_translate = [seg['text'] for seg in segments]
+            translated_all = []
+            
+            if is_indian and texts_to_translate:
+                # We do it in chunks of 5 sentences to keep text lengths manageable but reduce calls by 5x
+                chunk_size = 5
+                for i in range(0, len(texts_to_translate), chunk_size):
+                    batch = texts_to_translate[i : i+chunk_size]
+                    joined = " ###SEP### ".join(batch)
+                    translated_batch_raw = translate_text(joined, language, "en")
+                    translated_batch = translated_batch_raw.split(" ###SEP### ")
+                    # Pad if split failed to return enough parts
+                    while len(translated_batch) < len(batch):
+                        translated_batch.append(batch[len(translated_batch)])
+                    translated_all.extend(translated_batch)
+            else:
+                translated_all = texts_to_translate
+
             for i, seg in enumerate(segments):
                 self.progress.emit(int((i / total_segs) * 100))
-                seg['entities'] = get_entities_and_nouns(seg['text'])
+                
+                original_text = seg['text']
+                translated_text = translated_all[i] if i < len(translated_all) else original_text
+                
+                if is_indian and translated_text != original_text:
+                    seg['translated_text'] = translated_text
+                    raw_entities = get_entities_and_nouns(translated_text)
+                    
+                    # Batch translate entities for this segment
+                    if raw_entities:
+                        ent_names = [e['text'] for e in raw_entities]
+                        joined_ents = " ||| ".join(ent_names)
+                        local_names_raw = translate_text(joined_ents, "en", language)
+                        local_names = local_names_raw.split(" ||| ")
+                        
+                        dual_entities = []
+                        for j, ent in enumerate(raw_entities):
+                            l_name = local_names[j].strip() if j < len(local_names) else ent['text']
+                            
+                            # Add EN entity
+                            dual_entities.append({
+                                "text": ent['text'],
+                                "display_text": f"[EN] {ent['text']}",
+                                "language": "en",
+                                "label": ent['label']
+                            })
+                            
+                            # Add Local entity if different
+                            if l_name != ent['text']:
+                                dual_entities.append({
+                                    "text": l_name,
+                                    "display_text": f"[{language.upper()}] {l_name}",
+                                    "language": language,
+                                    "label": ent['label']
+                                })
+                        seg['entities'] = dual_entities
+                    else:
+                        seg['entities'] = []
+                else:
+                    # Non-indian or translation failed: just English
+                    raw_entities = get_entities_and_nouns(original_text)
+                    seg['entities'] = [{
+                        "text": e['text'],
+                        "display_text": f"[EN] {e['text']}" if is_indian else e['text'],
+                        "language": language if not is_indian else "en",
+                        "label": e['label']
+                    } for e in raw_entities]
+
                 seg['selected_wiki'] = None
                 seg['selected_wiki_url'] = None
                 seg['y_offset'] = 0
@@ -144,15 +214,15 @@ class EditorApp(QMainWindow):
 
     def init_ui(self):
         self.setStyleSheet("""
-            QMainWindow, QWidget { background-color:
-            QListWidget { background-color:
-            QListWidget::item { padding: 10px; border-bottom: 1px solid
-            QListWidget::item:selected { background-color:
-            QPushButton { background-color:
-            QPushButton:hover { background-color:
-            QPushButton:disabled { background-color:
-            QLabel
-            QTextEdit { background-color:
+            QMainWindow, QWidget { background-color: #1e1e1e; color: #ffffff; }
+            QListWidget { background-color: #252526; border: 1px solid #333; }
+            QListWidget::item { padding: 10px; border-bottom: 1px solid #333; }
+            QListWidget::item:selected { background-color: #094771; color: white; }
+            QPushButton { background-color: #0e639c; color: white; padding: 8px; border-radius: 4px; font-weight: bold; }
+            QPushButton:hover { background-color: #1177bb; }
+            QPushButton:disabled { background-color: #3a3d41; color: #888; }
+            QLabel { font-size: 13px; }
+            QTextEdit { background-color: #3c3c3c; color: white; border: 1px solid #555; }
         """)
 
         self.stack = QStackedWidget()
@@ -180,7 +250,7 @@ class EditorApp(QMainWindow):
 
         selection_layout.addSpacing(20)
 
-        btn_multi = QPushButton("MULTILINGUAL MODE\n(Supports Hindi, Tamil, etc., larger models)")
+        btn_multi = QPushButton("MULTILINGUAL MODE\n(Supports Hindi, Tamil, etc., smaller models)")
         btn_multi.setFixedSize(400, 80)
         btn_multi.clicked.connect(lambda: self.select_mode("multilingual"))
         selection_layout.addWidget(btn_multi, 0, Qt.AlignCenter)
@@ -209,13 +279,13 @@ class EditorApp(QMainWindow):
         self.progress_bar.setFixedHeight(30)
         self.progress_bar.setStyleSheet("""
             QProgressBar {
-                border: 2px solid
+                border: 1px solid #555;
                 border-radius: 10px;
                 text-align: center;
-                background-color:
+                background-color: #2d2d2d;
             }
             QProgressBar::chunk {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0e639c, stop:1 #4db3ff);
                 border-radius: 8px;
             }
         """)
@@ -224,11 +294,11 @@ class EditorApp(QMainWindow):
         self.log_console = QPlainTextEdit()
         self.log_console.setReadOnly(True)
         self.log_console.setStyleSheet("""
-            background-color:
-            color:
+            background-color: #1e1e1e;
+            color: #d4d4d4;
             font-family: 'Consolas', 'Courier New';
             font-size: 11px;
-            border: 1px solid
+            border: 1px solid #333;
             border-radius: 5px;
             margin-top: 20px;
         """)
@@ -288,6 +358,17 @@ class EditorApp(QMainWindow):
 
         scroll_group = QWidget()
         scroll_layout = QHBoxLayout(scroll_group)
+        self.y_offset_input = QSpinBox()
+        self.y_offset_input.setRange(0, 10000)
+        self.y_offset_input.setSingleStep(100)
+        self.y_offset_input.setPrefix("V-Offset: ")
+        self.y_offset_input.setStyleSheet("background-color: #3c3c3c; height: 30px;")
+        
+        self.btn_refresh_scroll = QPushButton("REFRESH VIEW")
+        self.btn_refresh_scroll.clicked.connect(self.on_refresh_with_scroll)
+        
+        scroll_layout.addWidget(self.y_offset_input)
+        scroll_layout.addWidget(self.btn_refresh_scroll)
 
 
 
@@ -360,11 +441,16 @@ class EditorApp(QMainWindow):
     def on_segment_selected(self, item):
         self.current_seg_index = self.seg_list.currentRow()
         seg = self.segments[self.current_seg_index]
-        self.seg_text_display.setText(seg['text'])
+        if seg.get('translated_text'):
+            display_text = f"{seg['text']}\n\n[Translation]: {seg['translated_text']}"
+        else:
+            display_text = seg['text']
+        self.seg_text_display.setText(display_text)
 
         self.ent_list.clear()
         for ent in seg['entities']:
-            self.ent_list.addItem(f"{ent['text']} ({ent['label']})")
+            display_ent = ent.get('display_text', ent['text'])
+            self.ent_list.addItem(f"{display_ent} - {ent['label']}")
 
         self.wiki_list.clear()
         if seg.get('selected_wiki'):
@@ -380,14 +466,19 @@ class EditorApp(QMainWindow):
              self.preview_label.setPixmap(QPixmap())
 
     def on_entity_selected(self, item):
-        entity_name = item.text().split(" (")[0]
+        row = self.ent_list.currentRow()
         seg = self.segments[self.current_seg_index]
-
-        self.preview_label.setText(f"AI is searching Wiki and News for '{entity_name}'...\n(Loading semantic models if first time)")
+        ent = seg['entities'][row]
+        
+        entity_name = ent['text']
+        search_language = ent.get('language', seg.get('language', 'en'))
+        
+        self.preview_label.setText(f"AI is searching {search_language.upper()} Wiki for '{entity_name}'...")
         self.wiki_list.clear()
         self.wiki_list.addItem("Searching...")
 
-        self.search_worker = SearchWorker(seg['text'], entity_name, seg.get('language', 'en'))
+        search_text = seg.get('translated_text', seg['text'])
+        self.search_worker = SearchWorker(search_text, entity_name, search_language)
         self.search_worker.finished.connect(self.on_search_finished)
         self.search_worker.error.connect(self.on_error)
         self.search_worker.start()
@@ -441,7 +532,7 @@ class EditorApp(QMainWindow):
 
     def capture_and_preview(self, url, title):
         seg = self.segments[self.current_seg_index]
-        y_offset = 0
+        y_offset = self.y_offset_input.value()
         seg['y_offset'] = y_offset
 
         self.preview_label.setText(f"Capturing screenshot from {title}...")

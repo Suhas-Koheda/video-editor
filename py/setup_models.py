@@ -32,6 +32,17 @@ def download_models(mode="english"):
     except Exception as e:
         print(f"✗ Whisper Failed: {e}")
 
+    if mode == "multilingual":
+        from processor.config import get_indic_conformer_model
+        ic_path = get_indic_conformer_model()
+        print(f"\n[2.5/4] Downloading Indic Whisper Model ({ic_path})...")
+        try:
+            from transformers import pipeline
+            pipeline("automatic-speech-recognition", model=ic_path, device=-1, model_kwargs={"cache_dir": CACHE_DIR})
+            print("✓ Indic Whisper Model Done.")
+        except Exception as e:
+            print(f"✗ Indic Whisper Model Failed: {e}")
+
     st_path = get_sentence_transformer_model()
     print(f"\n[3/4] Downloading Sentence Transformer ({st_path})...")
     try:
@@ -40,7 +51,7 @@ def download_models(mode="english"):
     except Exception as e:
         print(f"✗ Sentence Transformer Failed: {e}")
 
-    print("\n[4/4] Downloading NLTK data (POS Tagging)...")
+    print("\n[4/5] Downloading NLTK data (POS Tagging)...")
     try:
         import nltk
         nltk.download('punkt', quiet=True)
@@ -49,6 +60,19 @@ def download_models(mode="english"):
         print("✓ NLTK Done.")
     except Exception as e:
         print(f"✗ NLTK Failed: {e}")
+
+    if mode == "multilingual":
+        print("\n[5/5] Downloading Local Facebook Translation (NLLB-200) [2.4GB]...")
+        from huggingface_hub import snapshot_download
+        try:
+             snapshot_download(
+                 repo_id="facebook/nllb-200-distilled-600M",
+                 cache_dir=os.path.join(CACHE_DIR, "translation"),
+                 library_name="transformers"
+             )
+             print("✓ Facebook Translation Done.")
+        except Exception as e:
+             print(f"✗ Facebook Translation Failed: {e}")
 
     print(f"\n--- ALL {mode.upper()} MODELS CACHED IN ./.model_cache ---")
 
