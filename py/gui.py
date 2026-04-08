@@ -38,7 +38,7 @@ class StreamRedirector:
         return False
 
 class AnalysisWorker(QThread):
-    finished = Signal(list)
+    finished = Signal(list, dict) # segments, global_stats
     error = Signal(str)
     status = Signal(str)
     log = Signal(str)
@@ -93,8 +93,9 @@ class AnalysisWorker(QThread):
             else:
                 translated_all = texts_to_translate
 
+            total_segs = len(segments)
             for i, seg in enumerate(segments):
-                self.progress.emit(int((i / total_segs) * 100))
+                self.progress.emit(int((i / max(1, total_segs)) * 100))
                 
                 original_text = seg['text']
                 translated_text = translated_all[i] if i < len(translated_all) else original_text
@@ -150,6 +151,23 @@ class AnalysisWorker(QThread):
                 seg['language'] = language
                 seg['candidates'] = []
 
+            # --- FEATURE: GLOBAL ENTITY INTELLIGENCE ---
+            from processor.nlp_engine import build_global_entity_stats, compute_global_scores, get_sliding_context, rank_entities_for_segment
+
+            self.status.emit("Building global entity intelligence...")
+            global_stats = build_global_entity_stats(segments)
+            global_stats = compute_global_scores(global_stats)
+
+            self.status.emit("Ranking entities with context...")
+            for i, seg in enumerate(segments):
+                context_text = get_sliding_context(segments, i)
+                local_entities = seg.get('entities', []) 
+                
+                # Rank entities using global importance and sliding window context
+                final_ranked = rank_entities_for_segment(seg.get('translated_text', seg['text']), local_entities, global_stats, context_text)
+                seg['final_entities'] = final_ranked
+            # ---------------------------------------------
+
             self.progress.emit(100)
 
             from processor.nlp_engine import unload_nlp_model
@@ -157,7 +175,7 @@ class AnalysisWorker(QThread):
             unload_nlp_model()
             unload_whisper_model()
 
-            self.finished.emit(segments)
+            self.finished.emit(segments, global_stats)
         except Exception as e:
             self.error.emit(str(e))
         finally:
@@ -168,16 +186,25 @@ class SearchWorker(QThread):
     finished = Signal(list)
     error = Signal(str)
 
-    def __init__(self, segment_text, entity_name, language):
+    def __init__(self, segment_text, entity_name, language, context_text=None, global_entity_scores=None):
         super().__init__()
         self.segment_text = segment_text
         self.entity_name = entity_name
         self.language = language
+        self.context_text = context_text
+        self.global_entity_scores = global_entity_scores
 
     def run(self):
         try:
             from processor.retrieval_engine import agentic_search
-            candidates = agentic_search(self.segment_text, self.entity_name, search_type="all", language=self.language)
+            candidates = agentic_search(
+                self.segment_text, 
+                self.entity_name, 
+                search_type="all", 
+                language=self.language,
+                context_text=self.context_text,
+                global_entity_scores=self.global_entity_scores
+            )
             self.finished.emit(candidates)
         except Exception as e:
             self.error.emit(str(e))
@@ -194,6 +221,13 @@ class RenderWorker(QThread):
 
     def run(self):
         try:
+            from processor.nlp_engine import unload_nlp_model
+            from processor.speech_to_text import unload_whisper_model
+            from processor.retrieval_engine import unload_search_model
+            unload_nlp_model()
+            unload_whisper_model()
+            unload_search_model()
+
             from processor.overlay_engine import render_with_screenshots
             output = render_with_screenshots(self.video_path, self.render_plan)
             self.finished.emit(output)
@@ -419,8 +453,9 @@ class EditorApp(QMainWindow):
 
         self.log_console.verticalScrollBar().setValue(self.log_console.verticalScrollBar().maximum())
 
-    def on_analysis_complete(self, segments):
+    def on_analysis_complete(self, segments, global_stats):
         self.segments = segments
+        self.global_stats = global_stats # Store global stats for later search boosting
         self.update_segment_list()
         self.stack.setCurrentIndex(3)
         track("analysis_complete", {"segments_count": len(segments)})
@@ -478,7 +513,15 @@ class EditorApp(QMainWindow):
         self.wiki_list.addItem("Searching...")
 
         search_text = seg.get('translated_text', seg['text'])
-        self.search_worker = SearchWorker(search_text, entity_name, search_language)
+        
+        # FEATURE 1: PREPARE CONTEXT & GLOBAL SCORES
+        from processor.nlp_engine import get_sliding_context
+        context_text = get_sliding_context(self.segments, self.current_seg_index)
+        global_scores = {k: v['score'] for k, v in self.global_stats.items()} if hasattr(self, 'global_stats') else None
+
+        self.search_worker = SearchWorker(search_text, entity_name, search_language,
+                                          context_text=context_text,
+                                          global_entity_scores=global_scores)
         self.search_worker.finished.connect(self.on_search_finished)
         self.search_worker.error.connect(self.on_error)
         self.search_worker.start()
@@ -537,6 +580,14 @@ class EditorApp(QMainWindow):
 
         self.preview_label.setText(f"Capturing screenshot from {title}...")
         QApplication.processEvents()
+
+        # Unload heavy models to free up RAM for Chromium (prevent OOM crash)
+        from processor.nlp_engine import unload_nlp_model
+        from processor.speech_to_text import unload_whisper_model
+        from processor.retrieval_engine import unload_search_model
+        unload_nlp_model()
+        unload_whisper_model()
+        unload_search_model()
 
         from processor.screenshot_engine import capture_article_screenshot
         path = capture_article_screenshot(url, f"seg_{self.current_seg_index}", y_offset=y_offset)

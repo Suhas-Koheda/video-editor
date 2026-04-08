@@ -51,6 +51,21 @@ async def analyze_video(file: UploadFile = File(...)):
         seg["entities"] = get_entities_and_nouns(seg["text"])
         seg["language"] = language
 
+    # --- NEW PIPELINE STEPS ---
+    from processor.nlp_engine import build_global_entity_stats, compute_global_scores, get_sliding_context, rank_entities_for_segment
+    
+    global_stats = build_global_entity_stats(segments)
+    global_stats = compute_global_scores(global_stats)
+
+    for i, seg in enumerate(segments):
+        context_text = get_sliding_context(segments, i)
+        local_entities = seg.get('entities', [])
+        
+        # Rank entities using global importance and sliding window context
+        final_ranked = rank_entities_for_segment(seg['text'], local_entities, global_stats, context_text)
+        seg['final_entities'] = final_ranked
+    # ---------------------------
+
     return {
         "language": language,
         "segments": segments

@@ -13,6 +13,11 @@ A specialized AI-powered video editing tool designed to automatically enrich vid
 
 ## New Features
 
+- **Intelligent Entity Ranking**: Upgraded NLP pipeline with global context-awareness:
+  - **Global Entity Tracking**: Statistical analysis of entity frequency and prominence across the entire video.
+  - **Sliding Window Context**: Enhanced entity understanding by analyzing neighboring segments (cross-segment context).
+  - **Dynamic Importance Scoring**: Entities are prioritized based on frequency, phrase complexity, and early appearance.
+  - **Normalization & De-duplication**: Improved consistency through entity key normalization and variation merging.
 - **Cloud Analytics**: Integrated PostHog integration for anonymous usage tracking and performance monitoring.
 - **Model Efficiency Modes**: Selective initialization between English-optimized and Multilingual models to optimize for hardware or language requirements.
 - **Website Screenshots**: Shifted from local card generation to high-fidelity thum.io web captures for more authentic information cards.

@@ -149,3 +149,5 @@ def unload_whisper_model():
         del _whisper_model
         _whisper_model = None
     gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
