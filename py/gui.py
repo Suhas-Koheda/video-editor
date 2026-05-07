@@ -237,8 +237,8 @@ class RenderWorker(QThread):
 class EditorApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("AI Video Knowledge Editor")
-        self.resize(1200, 800)
+        self.setWindowTitle("Video Knowledge Editor")
+        self.resize(1280, 720)  # Slightly larger default for modern screens
         self.segments = []
         self.video_path = ""
         self.current_seg_index = -1
@@ -248,15 +248,99 @@ class EditorApp(QMainWindow):
 
     def init_ui(self):
         self.setStyleSheet("""
-            QMainWindow, QWidget { background-color: #1e1e1e; color: #ffffff; }
-            QListWidget { background-color: #252526; border: 1px solid #333; }
-            QListWidget::item { padding: 10px; border-bottom: 1px solid #333; }
-            QListWidget::item:selected { background-color: #094771; color: white; }
-            QPushButton { background-color: #0e639c; color: white; padding: 8px; border-radius: 4px; font-weight: bold; }
-            QPushButton:hover { background-color: #1177bb; }
-            QPushButton:disabled { background-color: #3a3d41; color: #888; }
-            QLabel { font-size: 13px; }
-            QTextEdit { background-color: #3c3c3c; color: white; border: 1px solid #555; }
+            QMainWindow, QStackedWidget {
+                background-color: #FFFFFF;
+            }
+            QWidget {
+                background-color: #FFFFFF;
+                color: #000000;
+                font-family: -apple-system, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+                font-size: 13px;
+            }
+            QListWidget {
+                background-color: #FAFAFA;
+                border: 1px solid #E0E0E0;
+                border-radius: 12px;
+                padding: 4px 0;
+                outline: none;
+            }
+            QListWidget::item {
+                padding: 10px 14px;
+                border-bottom: 1px solid #F0F0F0;
+                color: #000000;
+            }
+            QListWidget::item:last-child { border-bottom: none; }
+            QListWidget::item:hover { background-color: #F2F2F2; }
+            QListWidget::item:selected {
+                background-color: #E8E8E8;
+                color: #000000;
+                border-radius: 8px;
+            }
+            QPushButton {
+                background-color: #000000;
+                color: #FFFFFF;
+                border: none;
+                padding: 9px 20px;
+                border-radius: 10px;
+                font-size: 13px;
+                font-weight: 600;
+            }
+            QPushButton:hover { background-color: #222222; }
+            QPushButton:pressed { background-color: #444444; }
+            QPushButton:disabled { background-color: #C0C0C0; color: #FFFFFF; }
+            QLabel {
+                color: #000000;
+                font-size: 13px;
+                background-color: transparent;
+            }
+            QTextEdit, QPlainTextEdit {
+                background-color: #FAFAFA;
+                color: #000000;
+                border: 1px solid #E0E0E0;
+                border-radius: 10px;
+                padding: 8px;
+                selection-background-color: #000000;
+                selection-color: #FFFFFF;
+            }
+            QLineEdit {
+                background-color: #FAFAFA;
+                color: #000000;
+                border: 1px solid #E0E0E0;
+                border-radius: 10px;
+                padding: 7px 12px;
+                selection-background-color: #000000;
+                selection-color: #FFFFFF;
+            }
+            QLineEdit:focus { border: 1.5px solid #000000; }
+            QSpinBox {
+                background-color: #FAFAFA;
+                color: #000000;
+                border: 1px solid #E0E0E0;
+                border-radius: 10px;
+                padding: 6px 10px;
+            }
+            QProgressBar {
+                border: none;
+                border-radius: 6px;
+                background-color: #EBEBEB;
+                text-align: center;
+                color: transparent;
+            }
+            QProgressBar::chunk {
+                background-color: #000000;
+                border-radius: 6px;
+            }
+            QScrollBar:vertical {
+                background: transparent;
+                width: 8px;
+                margin: 0;
+            }
+            QScrollBar::handle:vertical {
+                background: #C0C0C0;
+                border-radius: 4px;
+                min-height: 30px;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
         """)
 
         self.stack = QStackedWidget()
@@ -267,25 +351,49 @@ class EditorApp(QMainWindow):
         selection_layout = QVBoxLayout(self.selection_page)
         selection_layout.addStretch(1)
 
-        sel_label = QLabel("SELECT PROCESSING MODE")
+        sel_label = QLabel("Video Knowledge Editor")
         sel_label.setAlignment(Qt.AlignCenter)
-        sel_label.setStyleSheet("font-size: 24px; font-weight: bold; color: #007acc; margin-bottom: 20px;")
+        sel_label.setStyleSheet("""
+            font-size: 28px;
+            font-weight: 700;
+            color: #000000;
+            letter-spacing: -0.5px;
+            margin-bottom: 8px;
+        """)
         selection_layout.addWidget(sel_label)
 
-        sub_label = QLabel("This determines the AI models used for transcription and analysis")
+        sub_label = QLabel("Choose a processing mode to get started")
         sub_label.setAlignment(Qt.AlignCenter)
-        sub_label.setStyleSheet("font-size: 14px; color: #888; margin-bottom: 40px;")
+        sub_label.setStyleSheet("""
+            font-size: 15px;
+            color: #666666;
+            margin-bottom: 40px;
+        """)
         selection_layout.addWidget(sub_label)
 
-        btn_en = QPushButton("ENGLISH MODE\n(Optimized for English, smaller models)")
-        btn_en.setFixedSize(400, 80)
+        btn_en = QPushButton("English Mode")
+        btn_en.setFixedSize(340, 52)
+        btn_en.setToolTip("Optimized for English — faster, smaller models")
         btn_en.clicked.connect(lambda: self.select_mode("english"))
         selection_layout.addWidget(btn_en, 0, Qt.AlignCenter)
 
-        selection_layout.addSpacing(20)
+        selection_layout.addSpacing(12)
 
-        btn_multi = QPushButton("MULTILINGUAL MODE\n(Supports Hindi, Tamil, etc., smaller models)")
-        btn_multi.setFixedSize(400, 80)
+        btn_multi = QPushButton("Multilingual Mode")
+        btn_multi.setFixedSize(340, 52)
+        btn_multi.setToolTip("Supports Hindi, Tamil, Telugu and more")
+        btn_multi.setStyleSheet("""
+            QPushButton {
+                background-color: #FFFFFF;
+                color: #000000;
+                border: 1.5px solid #000000;
+                padding: 9px 20px;
+                border-radius: 10px;
+                font-size: 13px;
+                font-weight: 600;
+            }
+            QPushButton:hover { background-color: #F0F0F0; }
+        """)
         btn_multi.clicked.connect(lambda: self.select_mode("multilingual"))
         selection_layout.addWidget(btn_multi, 0, Qt.AlignCenter)
 
@@ -294,10 +402,20 @@ class EditorApp(QMainWindow):
 
         self.start_page = QWidget()
         start_layout = QVBoxLayout(self.start_page)
-        btn_upload = QPushButton("UPLOAD VIDEO TO BEGIN")
-        btn_upload.setFixedSize(300, 60)
+        start_layout.addStretch(1)
+        start_title = QLabel("Open a Video File")
+        start_title.setAlignment(Qt.AlignCenter)
+        start_title.setStyleSheet("font-size: 22px; font-weight: 700; color: #000000; margin-bottom: 8px;")
+        start_layout.addWidget(start_title)
+        start_sub = QLabel("Select an MP4, MOV or AVI file to begin analysis")
+        start_sub.setAlignment(Qt.AlignCenter)
+        start_sub.setStyleSheet("font-size: 14px; color: #666666; margin-bottom: 32px;")
+        start_layout.addWidget(start_sub)
+        btn_upload = QPushButton("Choose Video...")
+        btn_upload.setFixedSize(220, 44)
         btn_upload.clicked.connect(self.upload_video)
         start_layout.addWidget(btn_upload, 0, Qt.AlignCenter)
+        start_layout.addStretch(1)
         self.stack.addWidget(self.start_page)
 
         self.loading_page = QWidget()
@@ -306,37 +424,32 @@ class EditorApp(QMainWindow):
 
         self.load_status = QLabel("Ready")
         self.load_status.setAlignment(Qt.AlignCenter)
-        self.load_status.setStyleSheet("font-size: 22px; font-weight: bold; color: #007acc; margin-bottom: 20px;")
+        self.load_status.setStyleSheet("""
+            font-size: 18px;
+            font-weight: 600;
+            color: #000000;
+            margin-bottom: 12px;
+        """)
         loading_layout.addWidget(self.load_status)
 
         self.progress_bar = QProgressBar()
-        self.progress_bar.setFixedHeight(30)
-        self.progress_bar.setStyleSheet("""
-            QProgressBar {
-                border: 1px solid #555;
-                border-radius: 10px;
-                text-align: center;
-                background-color: #2d2d2d;
-            }
-            QProgressBar::chunk {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0e639c, stop:1 #4db3ff);
-                border-radius: 8px;
-            }
-        """)
+        self.progress_bar.setFixedHeight(6)
+        self.progress_bar.setTextVisible(False)
         loading_layout.addWidget(self.progress_bar)
 
         self.log_console = QPlainTextEdit()
         self.log_console.setReadOnly(True)
         self.log_console.setStyleSheet("""
-            background-color: #1e1e1e;
-            color: #d4d4d4;
-            font-family: 'Consolas', 'Courier New';
+            background-color: #FFFFFF;
+            color: #111111;
+            font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
             font-size: 11px;
-            border: 1px solid #333;
-            border-radius: 5px;
-            margin-top: 20px;
+            border: 1px solid #E0E0E0;
+            border-radius: 12px;
+            padding: 12px;
+            margin-top: 16px;
         """)
-        self.log_console.setMinimumHeight(250)
+        self.log_console.setMinimumHeight(260)
         loading_layout.addWidget(self.log_console)
 
         loading_layout.addStretch(1)
@@ -346,18 +459,27 @@ class EditorApp(QMainWindow):
         editor_layout = QHBoxLayout(self.editor_page)
 
         left_panel = QWidget()
+        left_panel.setStyleSheet("background-color: #FFFFFF;")
         left_layout = QVBoxLayout(left_panel)
-        left_layout.addWidget(QLabel("Timeline Segments"))
+        left_layout.setContentsMargins(8, 12, 8, 12)
+        left_layout.setSpacing(8)
+        tl_label = QLabel("Timeline")
+        tl_label.setStyleSheet("font-size: 11px; font-weight: 600; color: #666666; letter-spacing: 0.5px; text-transform: uppercase; background: transparent;")
+        left_layout.addWidget(tl_label)
         self.seg_list = QListWidget()
         self.seg_list.itemClicked.connect(self.on_segment_selected)
         left_layout.addWidget(self.seg_list)
         editor_layout.addWidget(left_panel, 1)
 
         mid_panel = QWidget()
+        mid_panel.setStyleSheet("background-color: #FFFFFF;")
         mid_layout = QVBoxLayout(mid_panel)
+        mid_layout.setContentsMargins(8, 12, 8, 12)
+        mid_layout.setSpacing(8)
+
         self.seg_text_display = QTextEdit()
         self.seg_text_display.setReadOnly(True)
-        self.seg_text_display.setMaximumHeight(100)
+        self.seg_text_display.setMaximumHeight(90)
 
         self.ent_list = QListWidget()
         self.ent_list.itemClicked.connect(self.on_entity_selected)
@@ -365,17 +487,24 @@ class EditorApp(QMainWindow):
         self.wiki_list = QListWidget()
         self.wiki_list.itemClicked.connect(self.on_article_selected)
 
-        mid_layout.addWidget(QLabel("Segment Text"))
+        def section_label(text):
+            lbl = QLabel(text)
+            lbl.setStyleSheet("font-size: 11px; font-weight: 600; color: #666666; letter-spacing: 0.5px; background: transparent;")
+            return lbl
+
+        mid_layout.addWidget(section_label("Segment Text"))
         mid_layout.addWidget(self.seg_text_display)
-        mid_layout.addWidget(QLabel("Detected Entities (NER/POS)"))
+        mid_layout.addWidget(section_label("Detected Entities"))
         mid_layout.addWidget(self.ent_list)
-        mid_layout.addWidget(QLabel("Wikipedia Articles (Choose one)"))
+        mid_layout.addWidget(section_label("Articles"))
         mid_layout.addWidget(self.wiki_list)
 
         url_layout = QHBoxLayout()
+        url_layout.setSpacing(8)
         self.custom_url_input = QLineEdit()
-        self.custom_url_input.setPlaceholderText("Or paste any article URL here...")
-        self.btn_use_url = QPushButton("CAPTURE URL")
+        self.custom_url_input.setPlaceholderText("Paste any article URL...")
+        self.btn_use_url = QPushButton("Capture")
+        self.btn_use_url.setFixedWidth(90)
         self.btn_use_url.clicked.connect(self.on_custom_url_submitted)
         url_layout.addWidget(self.custom_url_input)
         url_layout.addWidget(self.btn_use_url)
@@ -384,43 +513,62 @@ class EditorApp(QMainWindow):
         editor_layout.addWidget(mid_panel, 1)
 
         right_panel = QWidget()
+        right_panel.setStyleSheet("background-color: #FFFFFF;")
         right_layout = QVBoxLayout(right_panel)
-        self.preview_label = QLabel("No Selection\n\nPick a Wiki article to see the overlay card")
+        right_layout.setContentsMargins(8, 12, 8, 12)
+        right_layout.setSpacing(8)
+
+        preview_header = QLabel("Knowledge Card")
+        preview_header.setStyleSheet("font-size: 11px; font-weight: 600; color: #666666; letter-spacing: 0.5px; background: transparent;")
+        right_layout.addWidget(preview_header)
+
+        self.preview_label = QLabel("No Selection\n\nSelect an article to preview the overlay card")
         self.preview_label.setAlignment(Qt.AlignCenter)
         self.preview_label.setWordWrap(True)
-        self.preview_label.setStyleSheet("border: 2px dashed #444; border-radius: 10px; padding: 20px;")
+        self.preview_label.setStyleSheet("""
+            background-color: #FAFAFA;
+            border: 1.5px solid #E0E0E0;
+            border-radius: 12px;
+            padding: 24px;
+            color: #666666;
+            font-size: 13px;
+        """)
 
         scroll_group = QWidget()
+        scroll_group.setStyleSheet("background: transparent;")
         scroll_layout = QHBoxLayout(scroll_group)
+        scroll_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_layout.setSpacing(8)
         self.y_offset_input = QSpinBox()
         self.y_offset_input.setRange(0, 10000)
         self.y_offset_input.setSingleStep(100)
-        self.y_offset_input.setPrefix("V-Offset: ")
-        self.y_offset_input.setStyleSheet("background-color: #3c3c3c; height: 30px;")
-        
-        self.btn_refresh_scroll = QPushButton("REFRESH VIEW")
+        self.y_offset_input.setPrefix("Offset: ")
+        self.y_offset_input.setFixedHeight(36)
+
+        self.btn_refresh_scroll = QPushButton("Refresh")
+        self.btn_refresh_scroll.setFixedHeight(36)
+        self.btn_refresh_scroll.setStyleSheet("""
+            QPushButton {
+                background-color: #FFFFFF;
+                color: #000000;
+                border: 1.5px solid #000000;
+                border-radius: 10px;
+                font-weight: 600;
+                padding: 0 16px;
+            }
+            QPushButton:hover { background-color: #F0F0F0; }
+        """)
         self.btn_refresh_scroll.clicked.connect(self.on_refresh_with_scroll)
-        
         scroll_layout.addWidget(self.y_offset_input)
         scroll_layout.addWidget(self.btn_refresh_scroll)
 
-
-
-
-
-
-
-
-
-
-        self.btn_render = QPushButton("FINALIZE & RENDER VIDEO")
-        self.btn_render.setFixedHeight(50)
+        self.btn_render = QPushButton("Render Video")
+        self.btn_render.setFixedHeight(44)
         self.btn_render.clicked.connect(self.start_render)
 
-        right_layout.addWidget(QLabel("Knowledge Card Preview"))
         right_layout.addWidget(self.preview_label, 5)
         right_layout.addWidget(scroll_group)
-        right_layout.addWidget(self.btn_render, 1)
+        right_layout.addWidget(self.btn_render)
         editor_layout.addWidget(right_panel, 1)
 
         self.stack.addWidget(self.editor_page)
@@ -428,12 +576,16 @@ class EditorApp(QMainWindow):
     def select_mode(self, mode):
         from processor.config import set_model_mode
         set_model_mode(mode)
+        # Fade transition to the next page for a smoother experience
+        self.fade_to_page(1)
         self.stack.setCurrentIndex(1)
 
     def upload_video(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "Open Video", "", "Video Files (*.mp4 *.mov *.avi)")
         if file_path:
             self.video_path = file_path
+            # Fade transition to processing page
+            self.fade_to_page(2)
             self.stack.setCurrentIndex(2)
             self.progress_bar.setValue(0)
             self.log_console.clear()
@@ -464,13 +616,19 @@ class EditorApp(QMainWindow):
         self.seg_list.clear()
         for i, seg in enumerate(self.segments):
             start_fmt = format_seconds_to_min_sec(seg['start'])
-            marker = "⚪"
+            # Use simple colored bullet markers instead of emojis
             if seg.get('screenshot_path'):
-                marker = "🟢"
+                marker = "●"  # green bullet for captured screenshots
+                color = "#4caf50"
             elif seg.get('entities'):
-                marker = "🟠"
-
+                marker = "●"  # orange bullet for detected entities
+                color = "#ff9800"
+            else:
+                marker = "●"  # gray bullet for plain segments
+                color = "#9e9e9e"
             item = QListWidgetItem(f"{marker} [{start_fmt}] {seg['text'][:35]}...")
+            # Apply color via HTML formatting
+            item.setForeground(QtGui.QColor(color))
             self.seg_list.addItem(item)
 
     def on_segment_selected(self, item):
@@ -622,6 +780,8 @@ class EditorApp(QMainWindow):
             QMessageBox.warning(self, "No Selections", "Please select at least one Wikipedia article to overlay.")
             return
 
+        # Fade transition to rendering page
+        self.fade_to_page(2)
         self.stack.setCurrentIndex(2)
         self.load_status.setText("RENDERING INTELLIGENCE LAYER...\nPlease wait, encoding video.")
 
@@ -654,12 +814,36 @@ class EditorApp(QMainWindow):
         track("render_finished", {"output_path": output})
 
     def on_error(self, message):
+        # Return to the editor page with a fade effect on error
+        self.fade_to_page(3)
         self.stack.setCurrentIndex(3)
         QMessageBox.critical(self, "System Error", f"An operation failed:\n{message}")
+
+    def fade_to_page(self, index):
+        """Fade animation when switching pages in the QStackedWidget."""
+        from PySide6.QtCore import QPropertyAnimation, QEasingCurve
+        current = self.stack.currentWidget()
+        next_widget = self.stack.widget(index)
+        if not current or not next_widget:
+            return
+        fade_out = QPropertyAnimation(current, b"windowOpacity")
+        fade_out.setDuration(200)
+        fade_out.setStartValue(1.0)
+        fade_out.setEndValue(0.0)
+        fade_out.setEasingCurve(QEasingCurve.InOutQuad)
+        fade_in = QPropertyAnimation(next_widget, b"windowOpacity")
+        fade_in.setDuration(200)
+        fade_in.setStartValue(0.0)
+        fade_in.setEndValue(1.0)
+        fade_in.setEasingCurve(QEasingCurve.InOutQuad)
+        fade_out.finished.connect(fade_in.start)
+        fade_out.start()
 
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    # Enable high DPI scaling for crisp visuals
+    QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
     window = EditorApp()
     window.show()
     sys.exit(app.exec())
