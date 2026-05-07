@@ -1,108 +1,123 @@
 # AI Video Knowledge Editor
 
-A specialized AI-powered video editing tool designed to automatically enrich video content with contextual knowledge cards. The system analyzes spoken content, identifies key entities, and overlays relevant visual information sourced from Wikipedia and global news publications.
+**Transform standard video content into interactive, knowledge-rich experiences.**
+
+The AI Video Knowledge Editor is a state-of-the-art tool that automatically enriches video content with contextual "Knowledge Cards." By combining high-speed transcription, zero-shot entity recognition, and real-time web retrieval, it overlays relevant information from Wikipedia and global news sources directly onto your video.
+
+---
+
+## Core Pipeline: How it Works
+
+The application follows a sophisticated multi-stage processing pipeline to ensure contextual accuracy and visual quality:
+
+1.  **Speech-to-Text**: Extracts audio and transcribes it using `faster-whisper` (Tiny/Base models).
+2.  **Multilingual Intelligence**: Detects the language and provides high-fidelity translation (for Indic and global languages) using Sarvam AI (API) or Facebook's NLLB-200 (Local).
+3.  **Global Entity Extraction**: Uses **GLiNER** for zero-shot Named Entity Recognition (NER), identifying people, concepts, and events.
+4.  **Contextual Ranking**: Analyzes the entire video's transcript to rank entities by importance using a "Sliding Window" context and global frequency statistics.
+5.  **Agentic Retrieval**: Queries Wikipedia and DuckDuckGo for the most relevant articles and summaries.
+6.  **Visual Rendering**: Captures high-fidelity screenshots using **Playwright (Chromium)** and overlays them as stylized cards via **FFmpeg**.
+
+---
 
 ## Key Features
 
-- **Automated Transcription**: Uses OpenAI Whisper (Tiny model) for efficient speech-to-text processing.
-- **Advanced Entity Recognition**: Implements GLiner (Small-v2.1 or Multi-v2.1) for high-accuracy, zero-shot entity extraction including people, organizations, and concepts.
-- **Context-Aware Retrieval**: Employs an agentic search mechanism that queries Wikipedia and News sources, ranking results using semantic embeddings to ensure contextual relevance.
-- **Performance Optimization**: Toggle between English-optimized and Multilingual modes to balance speed and language support.
-- **Usage Analytics**: Integrated PostHog tracking for anonymous event monitoring and application performance metrics.
-- **Seamless Rendering**: Automatically overlays high-quality website screenshots as knowledge cards using thum.io and FFmpeg.
+### Advanced Multilingual Support
+Native optimization for English and **Indic Languages** (Hindi, Telugu, Tamil, Kannada, etc.).
+- **Sarvam AI Integration**: Blazing fast API-based translation for Indian dialects.
+- **Local NLLB Fallback**: Full privacy with Facebook's "No Language Left Behind" model running on your hardware.
 
-## New Features
+### Intelligent Entity Ranking
+Unlike simple NER, this system understands the "narrative" of the video:
+- **Global Context Awareness**: Entities are prioritized based on how often they appear across the *entire* video.
+- **Cross-Segment Context**: Analyzing neighboring segments to resolve ambiguity.
+- **Dynamic Scoring**: Entities are weighted by frequency, phrase complexity, and appearance timing.
 
-- **Intelligent Entity Ranking**: Upgraded NLP pipeline with global context-awareness:
-  - **Global Entity Tracking**: Statistical analysis of entity frequency and prominence across the entire video.
-  - **Sliding Window Context**: Enhanced entity understanding by analyzing neighboring segments (cross-segment context).
-  - **Dynamic Importance Scoring**: Entities are prioritized based on frequency, phrase complexity, and early appearance.
-  - **Normalization & De-duplication**: Improved consistency through entity key normalization and variation merging.
-- **Cloud Analytics**: Integrated PostHog integration for anonymous usage tracking and performance monitoring.
-- **Model Efficiency Modes**: Selective initialization between English-optimized and Multilingual models to optimize for hardware or language requirements.
-- **Website Screenshots**: Shifted from local card generation to high-fidelity thum.io web captures for more authentic information cards.
-- **Real-time Feedback**: Added an integrated terminal log and progress bar for transparent model downloads and processing status.
-- **Interactive Bibliography**: Automatically exports a CSV file (`_knowledge_links.csv`) alongside every rendered video, containing timestamps and article URLs.
-- **Custom URL Support**: Users can manually paste any article URL to capture a custom knowledge card.
-- **Timeline Formatting**: Timeline segments are displayed in MM:SS format for improved navigation.
+### High-Fidelity Knowledge Cards
+- **Playwright Rendering**: Real-time browser-based screenshots for authentic information displays.
+- **Custom URL Overrides**: Manually paste any URL to force a specific knowledge card for a segment.
+- **Interactive Bibliography**: Every video export includes a `_knowledge_links.csv` file with timestamps and source URLs.
 
-## Project Structure
+### Professional Analytics & Monitoring
+- **PostHog Integration**: Privacy-conscious event tracking for performance optimization.
+- **Real-time Logs**: Integrated progress tracking for model downloads and rendering stages.
 
-- **py/**: Core Python implementation.
-  - **gui.py**: Graphical User Interface developed with PySide6.
-  - **main.py**: Application entry point with specialized compatibility patches.
-  - **processor/**: Modular AI engine including speech-to-text, NLP, retrieval, and rendering engines.
-  - **processor/tracker_cloud.py**: PostHog analytics implementation.
-  - **ml_service/**: FastAPI-based microservice for remote video analysis.
-  - **setup_models.py**: Utility to pre-cache all required AI models.
-- **go/**: Infrastructure for Go-based services and extensions.
+---
 
-## Setup and Installation
+## Technical Stack
+
+| Category | Technology |
+| :--- | :--- |
+| **Frontend** | PySide6 (Qt for Python) |
+| **Audio AI** | faster-whisper |
+| **NLP Engine** | GLiNER (Small-v2.1 / Multi-v2.1) |
+| **Translation** | Sarvam AI API / NLLB-200 |
+| **Search** | Wikipedia API, DuckDuckGo (DDGS) |
+| **Rendering** | FFmpeg, Playwright (Chromium) |
+| **Backend** | FastAPI (Microservice mode) |
+
+---
+
+## Setup & Installation
 
 ### 1. Prerequisites
-- FFmpeg must be installed and available in your system path.
-- Python 3.10 or higher.
+- **Python 3.10+**
+- **FFmpeg**: Must be installed and added to your System PATH.
+- **Node.js** (Optional, for Playwright dependencies)
 
 ### 2. Dependency Installation
-Navigate to the Python directory and initialize the virtual environment:
-
 ```bash
 cd py
 python -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+playwright install chromium
 ```
 
 ### 3. Model Pre-download (Recommended)
-To avoid delays during the first run, download the required AI models to the local cache:
-
+Pre-cache the AI models (approx. 2GB) to ensure smooth first-time execution:
 ```bash
-./.venv/bin/python setup_models.py
+python setup_models.py
 ```
 
-### 4. Running the Application
-Launch the desktop editor:
+---
 
+## Usage
+
+### Desktop GUI
+Launch the main application for a visual editing experience:
 ```bash
-bash run.sh
+bash run.sh  # Windows: run_windows.bat
 ```
 
-To run the ML microservice:
-
+### Headless ML Service
+Run the analysis engine as a FastAPI microservice:
 ```bash
 bash run_service.sh
 ```
 
-## Technical Specifications
+---
 
-- **Frontend**: PySide6 (Qt for Python).
-- **Audio Processing**: faster-whisper.
-- **NLP Engine**: GLiNER (Zero-shot Named Entity Recognition).
-- **Information Retrieval**: Wikipedia API and DuckDuckGo Search.
-- **Semantic Ranking**: Sentence-Transformers (all-MiniLM-L6-v2 / L12-v2).
-- **Analytics**: PostHog.
-- **Video Processing**: FFmpeg (libx264).
-- **Microservice Framework**: FastAPI and Uvicorn.
+## Project Structure
 
-## Packaging & Release
+- **`py/`**: Core Python implementation.
+  - **`gui.py`**: Rich desktop interface.
+  - **`processor/`**: The modular AI engine (Speech, Translation, NLP, Retrieval, Rendering).
+  - **`ml_service/`**: FastAPI implementation for remote processing.
+- **`go/`**: Infrastructure extensions for high-performance services.
+- **`.github/`**: Automated CI/CD pipelines for building standalone binaries.
 
-### Automated Releases (Recommended)
-This project is configured with GitHub Actions to automatically build standalone binaries for Windows, macOS, and Linux.
-1. Push a version tag to your repository (e.g., `git tag v1.0.0 && git push origin v1.0.0`).
-2. Navigate to the **Actions** tab in your GitHub repository.
-3. The "Package Application" workflow will generate the binaries and create a GitHub Release.
+---
 
-### Local Builds
-You can generate a standalone executable on your own machine using the provided scripts:
+## Roadmap & Development
 
-**Linux:**
-```bash
-cd py
-bash build_linux.sh
-```
+- [x] Indic Language Support (Beta)
+- [x] Global Entity Ranking logic
+- [x] Local Playwright rendering
+- [ ] Real-time "Knowledge Stream" preview
+- [ ] Support for custom CSS themes in Knowledge Cards
 
-**Windows:**
-1. Open Command Prompt or PowerShell in the `py` directory.
-2. Run `build_windows.bat`.
+> [!TIP]
+> To optimize for speed, use the **English-only** mode. For deep contextual analysis of regional content, enable the **Multilingual** model in Settings.
 
-**Standalone Note**: The resulting executables are "one-file" bundles. Because they include high-performance libraries like Torch and FFmpeg bindings, the initial file size will be large (approx. 1.2GB - 2GB).
+---
+*Developed for the next generation of educational and news content.*
