@@ -234,9 +234,161 @@ class RenderWorker(QThread):
         except Exception as e:
             self.error.emit(str(e))
 
+class TitleBar(QWidget):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.parent = parent
+        self.setFixedHeight(60)
+        
+        # Explicitly style the title bar container
+        self.setObjectName("TitleBar")
+        self.setStyleSheet("""
+            QWidget#TitleBar {
+                background-color: #FFFFFF;
+                border-bottom: 2px solid #000000;
+                border-top-left-radius: 12px;
+                border-top-right-radius: 12px;
+            }
+        """)
+
+        self.layout = QHBoxLayout(self)
+        self.layout.setContentsMargins(20, 0, 20, 0)
+        self.layout.setSpacing(12)
+
+        # Back button
+        self.back_btn = QPushButton("← BACK")
+        self.back_btn.setFixedSize(85, 32)
+        self.back_btn.setCursor(Qt.PointingHandCursor)
+        self.back_btn.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                color: #000000;
+                font-size: 13px;
+                font-weight: 900;
+                border: none;
+            }
+            QPushButton:hover {
+                text-decoration: underline;
+            }
+            QPushButton:disabled {
+                color: #CCCCCC;
+            }
+        """)
+        self.back_btn.clicked.connect(self.on_back_clicked)
+        self.layout.addWidget(self.back_btn)
+
+        self.title_label = QLabel("VIDEO KNOWLEDGE EDITOR")
+        self.title_label.setStyleSheet("""
+            font-weight: 900; 
+            font-size: 14px; 
+            color: #000000; 
+            letter-spacing: 1.5px;
+            background: transparent;
+            border: none;
+        """)
+        self.layout.addWidget(self.title_label)
+
+        self.layout.addStretch()
+
+        # Window controls
+        self.btn_min = QPushButton("—")
+        self.btn_max = QPushButton("□")
+        self.btn_close = QPushButton("✕")
+
+        for btn in [self.btn_min, self.btn_max, self.btn_close]:
+            btn.setFixedSize(45, 45)
+            btn.setCursor(Qt.PointingHandCursor)
+            
+        # Specific styling for close button to ensure it stands out
+        self.btn_close.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                color: #000000;
+                border: none;
+                font-size: 24px;
+                font-weight: 900;
+            }
+            QPushButton:hover {
+                background-color: #000000;
+                color: #FFFFFF;
+            }
+        """)
+        
+        # Consistent styling for other controls
+        control_style = """
+            QPushButton {
+                background-color: transparent;
+                color: #000000;
+                border: none;
+                font-size: 20px;
+                font-weight: 900;
+            }
+            QPushButton:hover {
+                background-color: #000000;
+                color: #FFFFFF;
+            }
+        """
+        self.btn_min.setStyleSheet(control_style)
+        self.btn_max.setStyleSheet(control_style)
+
+        self.btn_min.clicked.connect(self.parent.showMinimized)
+        self.btn_max.clicked.connect(self.toggle_maximize)
+        self.btn_close.clicked.connect(self.parent.close)
+
+        self.layout.addWidget(self.btn_min)
+        self.layout.addWidget(self.btn_max)
+        self.layout.addWidget(self.btn_close)
+
+        self.startPos = None
+        self.update_back_visibility()
+
+    def toggle_maximize(self):
+        if self.parent.isMaximized():
+            self.parent.showNormal()
+            self.btn_max.setText("▢")
+        else:
+            self.parent.showMaximized()
+            self.btn_max.setText("❐")
+
+    def on_back_clicked(self):
+        curr = self.parent.stack.currentIndex()
+        target = -1
+        
+        # Stop any running workers before going back
+        if curr == 2: # Loading page
+            self.parent.stop_workers()
+            target = 1
+        elif curr == 1: # Start page
+            target = 0
+        elif curr == 3: # Editor page
+            target = 1
+            
+        if target != -1:
+            self.parent.fade_to_page(target)
+            self.parent.stack.setCurrentIndex(target)
+
+    def update_back_visibility(self):
+        # Instead of hiding, we disable it on the home page for better B&W visibility
+        self.back_btn.setEnabled(self.parent.stack.currentIndex() > 0)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.startPos = event.globalPosition().toPoint()
+
+    def mouseMoveEvent(self, event):
+        if self.startPos:
+            delta = event.globalPosition().toPoint() - self.startPos
+            self.parent.move(self.parent.pos() + delta)
+            self.startPos = event.globalPosition().toPoint()
+
+    def mouseReleaseEvent(self, event):
+        self.startPos = None
+
 class EditorApp(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.setWindowFlags(Qt.FramelessWindowHint)
+        self.setAttribute(Qt.WA_TranslucentBackground)
         self.setWindowTitle("Video Knowledge Editor")
         self.resize(1280, 720)  # Slightly larger default for modern screens
         self.segments = []
@@ -245,6 +397,20 @@ class EditorApp(QMainWindow):
 
         self.init_ui()
         track("app_started")
+
+    def stop_workers(self):
+        """Safely terminate any running background threads."""
+        for attr in ['worker', 'render_worker', 'search_worker']:
+            if hasattr(self, attr):
+                w = getattr(self, attr)
+                if w and w.isRunning():
+                    w.terminate()
+                    w.wait()
+
+    def closeEvent(self, event):
+        """Clean up threads before closing."""
+        self.stop_workers()
+        event.accept()
 
     def init_ui(self):
         self.setStyleSheet("""
@@ -343,8 +509,37 @@ class EditorApp(QMainWindow):
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
         """)
 
+        self.main_container = QWidget()
+        self.main_container.setObjectName("MainContainer")
+        self.main_container.setStyleSheet("""
+            QWidget#MainContainer {
+                border: 2px solid #000000;
+                border-radius: 12px;
+                background-color: #FFFFFF;
+            }
+        """)
+        self.main_layout = QVBoxLayout(self.main_container)
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        self.main_layout.setSpacing(0)
+
         self.stack = QStackedWidget()
-        self.setCentralWidget(self.stack)
+
+        self.title_bar = TitleBar(self)
+        self.main_layout.addWidget(self.title_bar)
+        self.main_layout.addWidget(self.stack)
+
+        # Subtle size grip for resizing
+        grip_layout = QHBoxLayout()
+        grip_layout.setContentsMargins(0, 0, 2, 2)
+        grip_layout.addStretch()
+        self.size_grip = QSizeGrip(self)
+        self.size_grip.setFixedSize(14, 14)
+        self.size_grip.setStyleSheet("background: transparent;")
+        grip_layout.addWidget(self.size_grip)
+        self.main_layout.addLayout(grip_layout)
+
+        self.setCentralWidget(self.main_container)
+        self.stack.currentChanged.connect(self.title_bar.update_back_visibility)
 
 
         self.selection_page = QWidget()
@@ -628,7 +823,7 @@ class EditorApp(QMainWindow):
                 color = "#9e9e9e"
             item = QListWidgetItem(f"{marker} [{start_fmt}] {seg['text'][:35]}...")
             # Apply color via HTML formatting
-            item.setForeground(QtGui.QColor(color))
+            item.setForeground(QColor(color))
             self.seg_list.addItem(item)
 
     def on_segment_selected(self, item):
@@ -676,6 +871,10 @@ class EditorApp(QMainWindow):
         from processor.nlp_engine import get_sliding_context
         context_text = get_sliding_context(self.segments, self.current_seg_index)
         global_scores = {k: v['score'] for k, v in self.global_stats.items()} if hasattr(self, 'global_stats') else None
+
+        if hasattr(self, 'search_worker') and self.search_worker.isRunning():
+            self.search_worker.terminate()
+            self.search_worker.wait()
 
         self.search_worker = SearchWorker(search_text, entity_name, search_language,
                                           context_text=context_text,
